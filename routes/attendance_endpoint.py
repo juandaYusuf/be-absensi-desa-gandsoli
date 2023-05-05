@@ -18,6 +18,7 @@ async def attendancesInput(data: AttendanceInputData):
         user_id = response.user_id
         presenting_status = response.presenting
 
+        # MEMBUAT SISTEMATIS MENGIRIM NOTIFIKASI KE EMAIL 
         user_data_by_attendance_user_id = conn.execute(user_data.select().where(user_data.c.id == user_id)).first()
         # user_email_reciver = user_data_by_attendance_user_id.email
         user_email_reciver = "juandmark123@gmail.com"
