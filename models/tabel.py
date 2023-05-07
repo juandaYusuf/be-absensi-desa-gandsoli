@@ -13,7 +13,8 @@ user_data = Table(
     Column('email', String(20), nullable=False),
     Column('password', String(100), nullable=False),
     Column('j_kelamin', String(10), nullable=False),
-    Column('role', String(10), nullable=False)
+    Column('role', String(10), nullable=False),
+    Column('profile_picture', String(255))
 )
 
 # allowed_values = ["hadir", "izin", "alfa"]
