@@ -16,7 +16,19 @@ class RegisterData(BaseModel):
     password:str
     j_kelamin: str
     role: str
-    
+
+class EditDataProfile(BaseModel):
+    user_id: int
+    first_name:str
+    last_name: str
+    alamat: str
+    no_telepon: str
+    email:str
+
+class changePassword(BaseModel):
+    user_id: int
+    encpass: str
+
 class AttendanceInputData(BaseModel):
     user_id:int
     presenting: str

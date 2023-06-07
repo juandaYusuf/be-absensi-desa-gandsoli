@@ -1,7 +1,9 @@
 from sqlalchemy.exc import SQLAlchemyError
-from config.db import conn, engine
+from sqlalchemy.sql import select
+from sqlalchemy.orm import selectinload
+from config.db import engine
 from fastapi import APIRouter
-from models.tabel import (user_data, attendance)
+from models.tabel import (user_data, attendance, presence)
 from schema.schemas import (AttendanceInputData)
 import smtplib
 from email.message import EmailMessage
@@ -9,7 +11,7 @@ from email.message import EmailMessage
 
 router_attendance = APIRouter()
 
-@router_attendance.post('/attendance/input', tags=['ATTENDANCE'])
+@router_attendance.post('/api/attendance/input-attendance', tags=['ATTENDANCE'])
 async def attendancesInput(data: AttendanceInputData):
     try:
         conn = engine.connect()
@@ -44,22 +46,82 @@ async def attendancesInput(data: AttendanceInputData):
         return {
             "id": response.id,
             "name": f"{user_data_by_attendance_user_id.first_name} {user_data_by_attendance_user_id.last_name}",
-            "presenting": response.presenting
+            "presenting": response.presenting,
+            "created_at": response.created_at
         }
     except SQLAlchemyError as e:
-        print("terdapat error ==>> ", e)
+        print("terdapat error --> ", e)
     finally:
         conn.close()
-        print("\n ==>> attendance berhasil >> Koneksi di tutup <<== \n")
+        print("\n --> attendance berhasil | Koneksi di tutup <-- \n")
 
-@router_attendance.get('/attendance/users', tags=['ATTENDANCE'])
-async def attendancesUser():
+@router_attendance.get('/api/attendance/multi/user-presence-data', tags=['ATTENDANCE'])
+async def attendancesMultiUser():
     try:
         conn = engine.connect()
-        response = conn.execute(attendance.select()).fetchall()
-        return response
+        join_attendance_to_user_query = user_data.join(attendance, user_data.c.id == attendance.c.user_id)
+        join_attendance_to_user_result = select([attendance, user_data.c.first_name, user_data.c.last_name]).select_from(join_attendance_to_user_query)
+        response_attendance_to_user = conn.execute(join_attendance_to_user_result).fetchall()
+        attendance_data = []
+        
+        for data_of_attendance in response_attendance_to_user :
+            presence_datas = []
+            response_presence = conn.execute(presence.select()).fetchall()
+            for data_of_presence in response_presence :
+                if data_of_presence.attendance_id == data_of_attendance.id :
+                    presence_datas.append({
+                            "id" : data_of_presence.id,
+                            "attendance_id" : data_of_presence.attendance_id,
+                            "presence_status" : data_of_presence.presence_status,
+                            "created_at_in": data_of_presence.created_at_in,
+                            "created_at_out": data_of_presence.created_at_out,
+                        })
+            attendance_data.append({
+                "id":data_of_attendance.id ,
+                "user_id": data_of_attendance.user_id,
+                "first_name": data_of_attendance.first_name,
+                "last_name": data_of_attendance. last_name,
+                "presence": presence_datas
+            })
+        return attendance_data
     except SQLAlchemyError as e:
-        print("terdapat error ==>> ", e)
+        print("terdapat error --> ", e)
     finally:
         conn.close()
-        print("\n ==>> attendance berhasil >> Koneksi di tutup <<== \n")
+        print("\n --> attendancesMultiUser berhasil >> Koneksi di tutup <-- \n")
+        
+
+@router_attendance.get('/api/attendance/single/user-presence-data/{id}', tags=['ATTENDANCE'])
+async def attendancesSingleUser(id: int):
+    try:
+        conn = engine.connect()
+        join_attendance_to_user_query = user_data.join(attendance, user_data.c.id == attendance.c.user_id)
+        join_attendance_to_user_result = select([attendance, user_data.c.first_name, user_data.c.last_name]).select_from(join_attendance_to_user_query).where(attendance.c.id == id)
+        response_attendance_to_user = conn.execute(join_attendance_to_user_result).fetchall()
+        attendance_data = {}
+        
+        for data_of_attendance in response_attendance_to_user :
+            presence_datas = []
+            response_presence = conn.execute(presence.select()).fetchall()
+            for data_of_presence in response_presence :
+                if data_of_presence.attendance_id == data_of_attendance.id :
+                    presence_datas.append({
+                            "id" : data_of_presence.id,
+                            "attendance_id" : data_of_presence.attendance_id,
+                            "presence_status" : data_of_presence.presence_status,
+                            "created_at_in": data_of_presence.created_at_in,
+                            "created_at_out": data_of_presence.created_at_out
+                        })
+            attendance_data = {
+                "id":data_of_attendance.id ,
+                "user_id": data_of_attendance.user_id,
+                "first_name": data_of_attendance.first_name,
+                "last_name": data_of_attendance. last_name,
+                "presence": presence_datas
+            }
+        return attendance_data
+    except SQLAlchemyError as e:
+        print("terdapat error --> ", e)
+    finally:
+        conn.close()
+        print("\n --> attendancesSingleUser berhasil >> Koneksi di tutup <-- \n")
