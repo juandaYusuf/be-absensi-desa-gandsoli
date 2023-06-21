@@ -1,7 +1,6 @@
 # Membuat tabel database
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Table, Column, Time, Boolean, DefaultClause, CheckConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Table, Column, Time, Boolean, func
 from config.db import engine, metaData
-from sqlalchemy.orm import relationship
 
 user_data = Table(
     'user_data',
@@ -34,9 +33,21 @@ presence = Table(
     Column("attendance_id", Integer, ForeignKey("attendance.id"), nullable=False),
     Column('presence_status', String(5), nullable=False),
     Column('created_at_in', DateTime, server_default=func.now()),
-    Column('created_at_out', DateTime, server_default=func.now())
+    Column('created_at_out', DateTime, nullable=True)
     # Column('created_at_out', DateTime)
 )
 
+attendance_rules = Table(
+    'attendance_rules',
+    metaData,
+    Column('id', Integer, primary_key=True, nullable=False),
+    Column('title', String(20),nullable=False),
+    Column('work_start_time',Time, nullable=False),
+    Column('work_times_up',Time, nullable=False),
+    Column('late_deadline',Integer, nullable=False),
+    Column('usage',Boolean, nullable=False, default=False),
+    Column('description',String(1000), nullable=True),
+    Column('created_at', DateTime, server_default=func.now())
+)
 
 metaData.create_all(engine)

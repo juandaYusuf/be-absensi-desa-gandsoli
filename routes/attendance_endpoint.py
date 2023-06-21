@@ -96,7 +96,7 @@ async def attendancesSingleUser(id: int):
     try:
         conn = engine.connect()
         join_attendance_to_user_query = user_data.join(attendance, user_data.c.id == attendance.c.user_id)
-        join_attendance_to_user_result = select([attendance, user_data.c.first_name, user_data.c.last_name]).select_from(join_attendance_to_user_query).where(attendance.c.id == id)
+        join_attendance_to_user_result = select([attendance, user_data.c.first_name, user_data.c.last_name]).select_from(join_attendance_to_user_query).where(attendance.c.user_id == id)
         response_attendance_to_user = conn.execute(join_attendance_to_user_result).fetchall()
         attendance_data = {}
         

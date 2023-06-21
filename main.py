@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 from routes.user_endpoint import router_user
 from routes.attendance_endpoint import router_attendance
-from fastapi.staticfiles import StaticFiles
+from routes.attendance_rules_endpoint import router_attendance_rules
 from config.db import conn, engine
 import signal
 from fastapi.middleware.cors import CORSMiddleware 
+# from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 
@@ -40,3 +41,4 @@ app.add_middleware(
 
 app.include_router(router_user)
 app.include_router(router_attendance)
+app.include_router(router_attendance_rules)

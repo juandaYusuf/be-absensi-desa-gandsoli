@@ -1,8 +1,8 @@
 from sqlalchemy.exc import SQLAlchemyError
 from config.db import engine
 from fastapi import APIRouter, HTTPException, UploadFile, File
-from models.tabel import user_data, attendance
-from schema.schemas import (LoginData, RegisterData, EditDataProfile, changePassword)
+from models.tabel import user_data, attendance, presence
+from schema.schemas import (LoginData, RegisterData, EditDataProfile, changePassword, UpdateRole)
 import secrets
 import base64
 from deta import Deta
@@ -280,3 +280,47 @@ async def listOfUser():
         conn.close()
         print(f"\n \033[4;32m ==> OK[200]: 'list-of-user'| CONNECTION KILLED <== \n")
         
+# !DELETE USER
+@router_user.delete('/api/user/single/delete-user/{id}' , tags=['USERS'])
+async def deletUserData(id: int):
+    try:
+        conn = engine.connect()
+
+        get_attendance_data = conn.execute(attendance.select().where(attendance.c.user_id == id)).first()
+        get_presence_data = conn.execute(presence.select().where(presence.c.attendance_id == get_attendance_data.id)).first()
+        get_profile_picture_name = conn.execute(user_data.select().where(user_data.c.id == id)).first().profile_picture
+
+        # ?delete presence data
+        if get_presence_data or not get_presence_data:
+            if get_presence_data :
+                delete_presence_data = conn.execute(presence.delete().where(presence.c.attendance_id == get_presence_data.attendance_id))
+            # ?Delete Attendance_data
+            if delete_presence_data.rowcount > 0 :
+                delete_attendance_data = conn.execute(attendance.delete().where(attendance.c.id == get_attendance_data.id))
+                # ?Delete user data and delete profile picture
+                if delete_attendance_data.rowcount > 0 :
+                    delete_user_data = conn.execute(user_data.delete().where(user_data.c.id == id))
+                    if delete_user_data.rowcount > 0 :
+                        if get_profile_picture_name:
+                            drive.delete(get_profile_picture_name)
+                        return {"message":"user data has been deleted"}
+
+    except SQLAlchemyError as e:
+        print("terdapat error ==> ", e)
+    finally:
+        conn.close()
+        print("\n ==> 'deletUserData' berhasil >> Koneksi di tutup <== \n")
+
+
+@router_user.put('/api/user/single/update-user-role' , tags=['USERS'])
+async def updateUserRole(data : UpdateRole):
+    try:
+        conn = engine.connect()
+        update_user_role = conn.execute(user_data.update().values(role = data.role).where(user_data.c.id == data.id))
+        if update_user_role.rowcount > 0 :
+            return {"message": "user role has been updated"}
+    except SQLAlchemyError as e:
+        print("terdapat error ==> ", e)
+    finally:
+        conn.close()
+        print("\n ==> 'updateUserRole' berhasil >> Koneksi di tutup <== \n")
