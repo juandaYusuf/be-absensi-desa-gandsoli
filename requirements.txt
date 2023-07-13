@@ -4,4 +4,8 @@ deta==1.1.0
 python-multipart==0.0.5
 SQLAlchemy==1.4.45
 uvicorn==0.20.0
+pytz==2023.3
+websockets==11.0.3
+APScheduler==3.10.1
+
 # Pillow==9.4.0

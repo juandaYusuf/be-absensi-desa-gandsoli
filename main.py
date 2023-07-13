@@ -1,7 +1,13 @@
 from fastapi import FastAPI
-from routes.user_endpoint import router_user
-from routes.attendance_endpoint import router_attendance
-from routes.attendance_rules_endpoint import router_attendance_rules
+from endpoint.endpoints import (
+    user, 
+    attendance, 
+    attendance_rules, 
+    qrcode_data, user_scanning,
+    detail_scanned, personal_leave,
+    user_permission,
+    # notifs_ws
+    )
 from config.db import conn, engine
 import signal
 from fastapi.middleware.cors import CORSMiddleware 
@@ -39,6 +45,12 @@ app.add_middleware(
 )
 
 
-app.include_router(router_user)
-app.include_router(router_attendance)
-app.include_router(router_attendance_rules)
+app.include_router(user)
+app.include_router(attendance)
+app.include_router(attendance_rules)
+app.include_router(qrcode_data)
+app.include_router(user_scanning)
+app.include_router(detail_scanned)
+app.include_router(personal_leave)
+app.include_router(user_permission)
+# app.include_router(notifs_ws)

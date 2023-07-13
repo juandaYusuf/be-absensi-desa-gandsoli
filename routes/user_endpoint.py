@@ -1,16 +1,15 @@
 from sqlalchemy.exc import SQLAlchemyError
 from config.db import engine
 from fastapi import APIRouter, HTTPException, UploadFile, File
-from models.tabel import user_data, attendance, presence
+from models.tabel import user_data, attendance, presence, user_role, user_device_auth
 from schema.schemas import (LoginData, RegisterData, EditDataProfile, changePassword, UpdateRole)
 import secrets
 import base64
 from deta import Deta
+from config.picture_drive import drive 
+
 
 router_user = APIRouter()
-
-deta = Deta("c0nRwAq5JJSf_ti5F9A5g6Evx5jESXGe8aviyDRaTVQPE")
-drive = deta.Drive("profile_photo")
 
 
 #! USER  ==============================================================================
@@ -29,13 +28,40 @@ async def fetchAllUserData():
 async def login(data: LoginData):
     try:
         conn = engine.connect()
+        new_value = 0
         response = conn.execute(user_data.select().where(user_data.c.email == data.email)).first()
+        get_role = conn.execute(user_role.select().where(user_role.c.id == response.role_id)).first()
+
         if response :
-            return {
-                "id" : response.id, 
-                "role": response.role,
-                "encpass": response.password
-                }
+            check_login_counter = conn.execute(user_data.select().where(user_data.c.id == response.id)).first()
+            if check_login_counter.login_counter == None or check_login_counter.login_counter == 0:
+                # Ini kondisi ketika user baru di registrasikan atau belum pernah login
+                first_login = conn.execute(user_data.update().values(login_counter = 1).where(user_data.c.id == response.id)) # jika user login pertama kali maka hitung atau inisialisasi dengan angka 1
+                if first_login.rowcount > 0 :
+                    # ini kondisi jika proses query 'first_login' berhasil
+                    # karena user barusaja login maka insert fpBrowser  -> 'user_device_auth'
+                    insert_fpBrowser = conn.execute(user_device_auth.insert().values(user_id = response.id, user_device = data.user_device))
+                    if insert_fpBrowser.rowcount > 0:
+                        return {
+                            "id" : response.id, 
+                            "role": get_role.role,
+                            "encpass": response.password,
+                            "log": "first login"
+                            }
+            else :
+                validate_user_device = conn.execute(user_device_auth.select().where(user_device_auth.c.user_id == response.id, user_device_auth.c.user_device == data.user_device)).first()
+                if validate_user_device is not None :
+                    new_value = check_login_counter.login_counter + 1
+                    insert_counter = conn.execute(user_data.update().values(login_counter = new_value).where(user_data.c.id == response.id))
+                    if insert_counter.rowcount > 0 :
+                        return {
+                            "id" : response.id, 
+                            "role": get_role.role,
+                            "encpass": response.password,
+                            "log": f"{new_value} times login"
+                            }
+                else :
+                    return {"message" : "device not vaidated"}
         elif not response :
             raise HTTPException(status_code=404, detail="User Tidak Dapat ditemukan, Harap periksa kembali Email dan Password")
     except SQLAlchemyError as e:
@@ -51,11 +77,11 @@ async def register(data: RegisterData):
     try:
         conn = engine.connect()
         is_email_duplicate = conn.execute(user_data.select().where(user_data.c.email == data.email)).fetchall()
-        # response = {}
+        get_role = conn.execute(user_role.select().where(user_role.c.role == data.role)).first()
         if is_email_duplicate :
             raise HTTPException(status_code=409, detail="Email telah digunakan")
         else :
-            conn.execute(user_data.insert().values(first_name = data.first_name, last_name = data.last_name, alamat=data.alamat, no_telepon = data.no_telepon, email = data.email, password = data.password, j_kelamin = data.j_kelamin, role = data.role))
+            conn.execute(user_data.insert().values(first_name = data.first_name, last_name = data.last_name, alamat=data.alamat, no_telepon = data.no_telepon, email = data.email, password = data.password, j_kelamin = data.j_kelamin, role_id = get_role.id))
             response = conn.execute(user_data.select().where(user_data.c.first_name == data.first_name, user_data.c.last_name == data.last_name)).first()
             if response :
                 fullname = f"{response.first_name} {response.last_name}"
@@ -65,7 +91,7 @@ async def register(data: RegisterData):
                     return {
                         "message" : "register success",
                         "name": fullname,
-                        "role": response.role
+                        "role": get_role.role
                         }
             elif not response :
                 raise HTTPException(status_code=404, detail="gagal menyimpan data")
@@ -73,8 +99,7 @@ async def register(data: RegisterData):
         print("terdapat error ==> ", e)
     finally:
         conn.close()
-        if response :
-            print(f"\n \033[4;32m ==> OK[200]: {response.first_name} --> 'register' | CONNECTION KILLED <== \n")
+        print(f"\n \033[4;32m ==> OK[200]:'register' | CONNECTION KILLED <== \n")
 
 
 @router_user.put('/api/user/edit-profile', tags=["USERS"])
@@ -235,6 +260,7 @@ async def userDetail(id:int):
     try :
         conn = engine.connect()
         response = conn.execute(user_data.select().where(user_data.c.id == id)).first()
+        get_role = conn.execute(user_role.select().where(user_role.c.id == response.role_id)).first()
         return {
             "id": response.id,
             "first_name": response.first_name,
@@ -243,7 +269,7 @@ async def userDetail(id:int):
             "no_telepon": response.no_telepon,
             "email": response.email,
             "j_kelamin": response.j_kelamin,
-            "role": response.role,
+            "role": get_role.role,
             "profile_picture": response.profile_picture
             }
     except SQLAlchemyError as e :
@@ -270,7 +296,10 @@ async def listOfUser():
                 each_persons_picture.close()
                 encoded_image = base64.b64encode(output)
                 filtered_row['profile_picture'] = encoded_image
+                
 
+            get_role = conn.execute(user_role.select().where(user_role.c.id == row.role_id)).first()
+            filtered_row['role_id'] = get_role.role
             filtered_response.append(filtered_row)
 
         return filtered_response
@@ -291,7 +320,7 @@ async def deletUserData(id: int):
         get_profile_picture_name = conn.execute(user_data.select().where(user_data.c.id == id)).first().profile_picture
 
         # ?delete presence data
-        if get_presence_data or not get_presence_data:
+        if get_presence_data :
             if get_presence_data :
                 delete_presence_data = conn.execute(presence.delete().where(presence.c.attendance_id == get_presence_data.attendance_id))
             # ?Delete Attendance_data
@@ -304,6 +333,16 @@ async def deletUserData(id: int):
                         if get_profile_picture_name:
                             drive.delete(get_profile_picture_name)
                         return {"message":"user data has been deleted"}
+        else:
+            # ?Delete Attendance_data
+            delete_attendance_data = conn.execute(attendance.delete().where(attendance.c.id == get_attendance_data.id))
+            # ?Delete user data and delete profile picture
+            if delete_attendance_data.rowcount > 0 :
+                delete_user_data = conn.execute(user_data.delete().where(user_data.c.id == id))
+                if delete_user_data.rowcount > 0 :
+                    if get_profile_picture_name:
+                        drive.delete(get_profile_picture_name)
+                    return {"message":"user data has been deleted"}
 
     except SQLAlchemyError as e:
         print("terdapat error ==> ", e)
@@ -316,7 +355,7 @@ async def deletUserData(id: int):
 async def updateUserRole(data : UpdateRole):
     try:
         conn = engine.connect()
-        update_user_role = conn.execute(user_data.update().values(role = data.role).where(user_data.c.id == data.id))
+        update_user_role = conn.execute(user_data.update().values(role_id = data.role).where(user_data.c.id == data.id))
         if update_user_role.rowcount > 0 :
             return {"message": "user role has been updated"}
     except SQLAlchemyError as e:
@@ -324,3 +363,15 @@ async def updateUserRole(data : UpdateRole):
     finally:
         conn.close()
         print("\n ==> 'updateUserRole' berhasil >> Koneksi di tutup <== \n")
+
+
+@router_user.get('/api/user-role/multi/role' , tags=['USERS'])
+async def userRoles():
+    try:
+        conn = engine.connect()
+        return conn.execute(user_role.select()).fetchall()
+    except SQLAlchemyError as e:
+        print("terdapat error ==> ", e)
+    finally:
+        conn.close()
+        print("\n ==> 'userRoles' berhasil >> Koneksi di tutup <== \n")

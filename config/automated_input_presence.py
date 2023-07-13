@@ -1,25 +1,22 @@
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql import select
 from config.db import engine
-from fastapi import APIRouter, HTTPException
-from models.tabel import attendance_rules, attendance, user_has_scanned_in, personal_leave ,permission ,presence
-from schema.schemas import (AttendanceRules, AttendanceRulesActivation, )
+from fastapi import APIRouter
+from models.tabel import user_data, attendance, presence, user_has_scanned_in,personal_leave, permission
+from schema.schemas import AttendanceInputData
+import smtplib
+from email.message import EmailMessage
 import datetime
-import pytz
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import calendar
 
 
-router_attendance_rules = APIRouter()
-scheduler = AsyncIOScheduler()
-
-
-async def automatedInsertquery():
+#! Anggap user yang tidak melakukan scan_in sebagai user yang tidak hadir (Endpoin ini di hit ketika waktu keluar kerja telah berakhir)
+async def userNotScannedin():
     try :
+        
         conn = engine.connect()
         # cek tanggal sekarang kemudian anggap user yang tidak melakukan scann_in sebagai user yang tidak hadir (ALFA)
-        jakarta_tz = pytz.timezone('Asia/Jakarta')
-        current_datetime = datetime.datetime.now(jakarta_tz)
-        date_on_today = current_datetime.date()
-        current_date = date_on_today
+        current_date = datetime.date.today()
         #? ================================ ALGORITHM =======================================
         # Dapatkan data user yang sudah melakukan scan hari ini
         # Dapatkan seluruh user
@@ -139,103 +136,3 @@ async def automatedInsertquery():
     finally :
         conn.close()
         print("\n --> 'userNotScannedin' berhasil >> Koneksi di tutup <-- \n")
-
-
-@router_attendance_rules.get("/api/attendance_rule/show-all-attendance-rules", tags=["ATTENDANCE RULES"])
-async def showAttendancerule():
-    try:
-        conn = engine.connect()
-        response = conn.execute(attendance_rules.select()).fetchall()
-        return response
-    except SQLAlchemyError as e:
-        print("terdapat error ==> ", e)
-    finally:
-        conn.close()
-        print("\n ==> addAttendancerule berhasil >> Koneksi di tutup <== \n")
-
-
-@router_attendance_rules.post("/api/attendance_rule/add-attendance-rule", tags=["ATTENDANCE RULES"])
-async def addAttendanceRule(data: AttendanceRules):
-    try:
-        conn = engine.connect()
-        response = conn.execute(
-            attendance_rules.insert().values(
-                title = data.title,
-                work_start_time = data.work_start_time,
-                work_times_up = data.work_times_up,
-                late_deadline = data.late_deadline,
-                description=data.description))
-        if response.rowcount > 0:
-            return {"message": "data has been posted"}
-    except SQLAlchemyError as e:
-        print("terdapat error ==> ", e)
-    finally:
-        conn.close()
-        print("\n ==> addAttendanceRule berhasil >> Koneksi di tutup <== \n")
-
-@router_attendance_rules.delete("/api/attendance_rule/delete-attendance-rules/{id}", tags=["ATTENDANCE RULES"])
-async def deleteAttendancerule(id: int):
-    try:
-        conn = engine.connect()
-        response = conn.execute(attendance_rules.delete().where(attendance_rules.c.id == id))
-        if response.rowcount > 0 :
-            cek_usage = conn.execute(attendance_rules.select().where(attendance_rules.c.usage == True)).first()
-            if cek_usage == None :
-                conn.execute(attendance_rules.update().values(usage = True).where(attendance_rules.c.id == 1))
-            
-            return {"message": "data has been deleted"}
-    except SQLAlchemyError as e:
-        print("terdapat error ==> ", e)
-    finally:
-        conn.close()
-        print("\n ==> addAttendancerule berhasil >> Koneksi di tutup <== \n")
-
-@router_attendance_rules.put("/api/attendance_rule/usage-attendance-rules", tags=["ATTENDANCE RULES"])
-async def usageAttendancerule(data : AttendanceRulesActivation):
-    try:
-        conn = engine.connect()
-        reset_usages = conn.execute(attendance_rules.update().values(usage = 0))
-        if reset_usages.rowcount > 0:
-            response = conn.execute(attendance_rules.update().values(usage = data.usage).where(attendance_rules.c.id == data.id))
-            if response.rowcount > 0 :
-                cek_usage = conn.execute(attendance_rules.select().where(attendance_rules.c.usage == True)).first()
-                if cek_usage == None :
-                    conn.execute(attendance_rules.update().values(usage = True).where(attendance_rules.c.id == 1))
-                    
-                get_attendance_time = conn.execute(attendance_rules.select().where(attendance_rules.c.usage == True)).first()
-                hour = get_attendance_time.work_start_time.hour
-                minutes = get_attendance_time.late_deadline
-                
-                
-                # !======================= Menjalankan schedul task =======================
-                
-                is_task_is_running = scheduler.get_jobs() #cek apakah ada task yang sedang berjalan
-                for job in is_task_is_running: 
-                    if job.name == "automatedInsertquery": # jika da maka update jadwal nya setiap kali user melakuka perubahan pada aturan absensi di frontend
-                        job.reschedule(trigger='cron', hour=hour, minute=minutes)
-                        return {
-                            "messages" : "attendance_rules has been updated",
-                            "work_start_time":get_attendance_time.work_start_time,
-                            "work_times_up":get_attendance_time.work_times_up,
-                            "late_deadline": get_attendance_time.late_deadline,
-                            "sechedule": f"{hour}:{minutes}",
-                            "sechedule_status":"rescheduled"
-                            } 
-                
-                if len(is_task_is_running) <= 0: # jika tidak ada schedule maka buat schedule
-                    scheduler.add_job(automatedInsertquery, 'cron', hour=hour, minute=minutes)
-                    scheduler.start()
-                    return {
-                        "messages" : "attendance_rules has been updated",
-                        "work_start_time":get_attendance_time.work_start_time,
-                        "work_times_up":get_attendance_time.work_times_up,
-                        "late_deadline": get_attendance_time.late_deadline,
-                        "sechedule": f"{hour}:{minutes}",
-                        "sechedule_status":"rescheduled"
-                        } 
-    except SQLAlchemyError as e:
-        print("terdapat error ==> ", e)
-    finally:
-        conn.close()
-        print("\n ==> usageAttendancerule berhasil >> Koneksi di tutup <== \n")
-
