@@ -8,13 +8,13 @@ db_port = "3306"
 db_name = "freedb_absn_ds_gndsl"
 
 # db4free.net
-# dbURL = 'mysql+pymysql://ds_gandasoli:hcww151298@db4free.net:3306/ds_gandasoli_db'
+dbURL = 'mysql+pymysql://ds_gandasoli:hcww151298@db4free.net:3306/ds_gandasoli_db'
 
 # https://www.phpmyadmin.co
 # dbURL = 'mysql+pymysql://sql12621923:WBy29Wu2lZ@sql12.freemysqlhosting.net:3306/sql12621923'
 
 # local DB
-dbURL = 'mysql+pymysql://root@localhost:3306/absensi_desa_gandasoli'
+# dbURL = 'mysql+pymysql://root@localhost:3306/absensi_desa_gandasoli'
 
 
 # https://freedb.tech
