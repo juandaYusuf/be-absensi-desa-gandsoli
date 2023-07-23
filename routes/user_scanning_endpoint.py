@@ -4,6 +4,7 @@ from sqlalchemy.sql import select
 from fastapi import APIRouter, HTTPException
 from models.tabel import user_has_scanned_in, user_has_scanned_out, attendance_rules, presence, attendance, user_data, detail_user_scanned
 from schema.schemas import userScanning
+from config.jakarta_timezone import jkt_current_datetime
 # from config.picture_drive import drive
 import datetime
 import pytz
@@ -34,7 +35,12 @@ async def insertDetailUserScanned(scanned_options, user_id, scan_in_id, scan_out
     try :
         conn = engine.connect()
         if scanned_options == "in":
-            insert_detail = conn.execute(detail_user_scanned.insert().values(user_id = user_id, scan_in_id = scan_in_id, scan_out_id = scan_out_id, presence_id = presence_id))
+            insert_detail = conn.execute(detail_user_scanned.insert().values(
+                user_id = user_id, 
+                scan_in_id = scan_in_id, 
+                scan_out_id = scan_out_id, 
+                presence_id = presence_id,
+                created_at=jkt_current_datetime))
             if insert_detail.rowcount > 0 :
                 print("Insert data berhasil ke tabel ==> detail_user_scanned")
                 return {"message" : f"thanks for scanned {scanned_options}"}
@@ -96,7 +102,11 @@ async def postUserScanningInData(data : userScanning):
             # User belum scan maka input data scann in
             # get attendance id 
             get_attendance_id = conn.execute(attendance.select().where(attendance.c.user_id == data.user_id)).first().id
-            insert_scanned_in = conn.execute(user_has_scanned_in.insert().values(user_id = data.user_id, attendance_id = get_attendance_id, status = data.status))
+            insert_scanned_in = conn.execute(user_has_scanned_in.insert().values(
+                user_id = data.user_id, 
+                attendance_id = get_attendance_id, 
+                status = data.status,
+                created_at=jkt_current_datetime))
             
             # ontime_datas = []
             # alfa_datas = []
@@ -127,7 +137,11 @@ async def postUserScanningInData(data : userScanning):
                 
                 if time_format_from_scanning_in > time_format_late_estimate:
                     # ini adalah kondisi dimana user yang melakukan scann melebihi estimasi keterlambatan maka harus "ALFA"
-                    insert_to_presence_as_alfa = conn.execute(presence.insert().values(attendance_id = get_attendance_id, presence_status = "alfa", descriptions = "scan in > late deadline"))
+                    insert_to_presence_as_alfa = conn.execute(presence.insert().values(
+                        attendance_id = get_attendance_id, 
+                        presence_status = "alfa",
+                        created_at_in=jkt_current_datetime,
+                        descriptions = "scan in > late deadline"))
                     if insert_to_presence_as_alfa.rowcount > 0 :
                         # handle alfa
                         # kirim email pada email user yang terkait dan menyatakan sebagai ALFA
@@ -183,7 +197,12 @@ async def postUserScanningInData(data : userScanning):
                         minutes_from_scanning_in = time_format_from_scanning_in.minute
                         second_from_scanning_in = time_format_from_scanning_in.second
                         come_late_description = f"telat {minutes_from_scanning_in} menit {second_from_scanning_in} detik"
-                        insert_to_presence_as_come_late = conn.execute(presence.insert().values(attendance_id = get_attendance_id, presence_status = "hadir", working = True, descriptions = come_late_description))
+                        insert_to_presence_as_come_late = conn.execute(presence.insert().values(
+                            attendance_id = get_attendance_id, 
+                            presence_status = "hadir",
+                            created_at_in=jkt_current_datetime,
+                            working = True, 
+                            descriptions = come_late_description))
                         
                         #! ========================== JOIN UNTUK TELAT ==============================
                         # join 'tabel user_has_scanned_in' dengan 'tabel attendance'
@@ -222,7 +241,12 @@ async def postUserScanningInData(data : userScanning):
                         
                     elif time_format_from_scanning_in <= work_start_time_to_time :
                         # handle ketika user masuk kerja
-                        insert_to_presence_as_come_late = conn.execute(presence.insert().values(attendance_id = get_attendance_id, presence_status = "hadir", working = True, descriptions = "tepat waktu"))
+                        insert_to_presence_as_come_late = conn.execute(presence.insert().values(
+                            attendance_id = get_attendance_id, 
+                            presence_status = "hadir", 
+                            created_at_in=jkt_current_datetime,
+                            working = True, 
+                            descriptions = "tepat waktu"))
                         
                         # jika berhasil inser data ke "presence"
                         if insert_to_presence_as_come_late.rowcount > 0 :
@@ -311,7 +335,11 @@ async def postUserScanningOutData(data: userScanning):
                 # Note: Jika scanning_in tepat waktu maka input data ke presence sebagai hadir (ambil data untuk cek hadir tepat waktu pada variable 'execute_join_query')
                 
                 # insert data ke tabel user_has_scanned_out
-                insert_scanned_out = conn.execute(user_has_scanned_out.insert().values(user_id = data.user_id, attendance_id = get_attendance_id, status = data.status))
+                insert_scanned_out = conn.execute(user_has_scanned_out.insert().values(
+                    user_id = data.user_id, 
+                    attendance_id = get_attendance_id, 
+                    status = data.status,
+                    created_at=jkt_current_datetime))
                 if insert_scanned_out.rowcount > 0 :
                     # ini kondisi ketika insert_scanned_out berhasil kemudian return data
                     # ambil data dari 'execute_join_query' menggunakan 'for loop' untuk validasi yang telah melakukan scan

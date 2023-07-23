@@ -34,7 +34,8 @@ presence = Table(
     Column('id', Integer, primary_key=True, nullable=False),
     Column("attendance_id", Integer, ForeignKey("attendance.id"), nullable=False),
     Column('presence_status', String(5), nullable=False),
-    Column('created_at_in', DateTime, server_default=func.now()),
+    # Column('created_at_in', DateTime, server_default=func.now()),
+    Column('created_at_in', DateTime, nullable=False),
     Column('created_at_out', DateTime, nullable=True),
     Column("personal_leave_id", Integer, ForeignKey("personal_leave.id"), nullable=True),
     Column("permission", Integer, ForeignKey("permission.id"), nullable=True),
@@ -54,7 +55,8 @@ attendance_rules = Table(
     Column('late_deadline',Integer, nullable=False),
     Column('usage',Boolean, nullable=False, default=False),
     Column('description',String(500), nullable=True),
-    Column('created_at', DateTime, server_default=func.now())
+    # Column('created_at', DateTime, server_default=func.now())
+    Column('created_at', DateTime)
 )
 
 qrcode_data = Table(
@@ -64,7 +66,8 @@ qrcode_data = Table(
     Column("qrcode_in_id", Integer, ForeignKey("qrcode_data_in.id"), nullable=False),
     Column("qrcode_out_id", Integer, ForeignKey("qrcode_data_out.id"), nullable=False),
     Column('tmstmp', String(20),nullable=False),
-    Column('created_at', Date, server_default=func.now())
+    # Column('created_at', Date, server_default=func.now())
+    Column('created_at', Date)
 )
 
 qrcode_data_in = Table(
@@ -73,7 +76,8 @@ qrcode_data_in = Table(
     Column('id', Integer, primary_key=True, nullable=False),
     Column('tmstmp', String(20),nullable=False),
     Column('status', String(20),nullable=False),
-    Column('created_at', Date, server_default=func.now())
+    # Column('created_at', Date, server_default=func.now())
+    Column('created_at', Date)
 )
 
 qrcode_data_out = Table(
@@ -82,7 +86,8 @@ qrcode_data_out = Table(
     Column('id', Integer, primary_key=True, nullable=False),
     Column('tmstmp', String(20),nullable=False),
     Column('status', String(20),nullable=False),
-    Column('created_at', Date, server_default=func.now())
+    # Column('created_at', Date, server_default=func.now())
+    Column('created_at', Date)
 )
 
 user_has_scanned_in = Table(
@@ -92,7 +97,8 @@ user_has_scanned_in = Table(
     Column("user_id", Integer, ForeignKey("user_data.id"), nullable=False),
     Column("attendance_id", Integer, ForeignKey("attendance.id"), nullable=False),
     Column('status', String(20),nullable=False),
-    Column('created_at', DateTime, server_default=func.now())
+    # Column('created_at', DateTime, server_default=func.now())
+    Column('created_at', DateTime)
 )
 
 user_has_scanned_out = Table(
@@ -102,7 +108,8 @@ user_has_scanned_out = Table(
     Column("user_id", Integer, ForeignKey("user_data.id"), nullable=False),
     Column("attendance_id", Integer, ForeignKey("attendance.id"), nullable=False),
     Column('status', String(20),nullable=False),
-    Column('created_at', DateTime, server_default=func.now())
+    # Column('created_at', DateTime, server_default=func.now())
+    Column('created_at', DateTime)
 )
 
 detail_user_scanned = Table(
@@ -113,7 +120,8 @@ detail_user_scanned = Table(
     Column('scan_in_id', Integer, ForeignKey("user_has_scanned_in.id"), nullable=True), # Ambil 'created_at'
     Column('scan_out_id', Integer, ForeignKey("user_has_scanned_out.id"), nullable=True), # Ambil 'created_at'
     Column('presence_id', Integer, ForeignKey("presence.id"), nullable=False), # Ambil 'description'
-    Column('created_at', DateTime, server_default=func.now())
+    # Column('created_at', DateTime, server_default=func.now())
+    Column('created_at', DateTime)
 )
 
 permission = Table(

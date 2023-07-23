@@ -1,3 +1,11 @@
+# ===================================================
+# aplikasi backend rusak ketika zona waktu dalam operating sistem di ubah
+# maka perlu pnedekatan seperti baris kode dibawah ini sebelum core dari aplikasi ini dijalankan
+import os
+os.environ['TZ'] = 'Asia/Jakarta'
+# ===================================================
+
+
 from fastapi import FastAPI
 from endpoint.endpoints import (
     user, 
@@ -14,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
+
 
 
 def kill_db_connections ():
