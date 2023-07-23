@@ -136,3 +136,6 @@ async def userNotScannedin():
     finally :
         conn.close()
         print("\n --> 'userNotScannedin' berhasil >> Koneksi di tutup <-- \n")
+        
+
+userNotScanned = userNotScannedin()

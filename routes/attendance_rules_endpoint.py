@@ -1,5 +1,6 @@
 from sqlalchemy.exc import SQLAlchemyError
 from config.db import engine
+from config.automated_input_presence import userNotScanned
 from fastapi import APIRouter, HTTPException
 from models.tabel import attendance_rules, attendance, user_has_scanned_in, personal_leave ,permission ,presence
 from schema.schemas import (AttendanceRules, AttendanceRulesActivation, )
@@ -211,7 +212,7 @@ async def usageAttendancerule(data : AttendanceRulesActivation):
                 
                 is_task_is_running = scheduler.get_jobs() #cek apakah ada task yang sedang berjalan
                 for job in is_task_is_running: 
-                    if job.name == "automatedInsertquery": # jika da maka update jadwal nya setiap kali user melakuka perubahan pada aturan absensi di frontend
+                    if job.name == "userNotScanned": # jika da maka update jadwal nya setiap kali user melakuka perubahan pada aturan absensi di frontend
                         job.reschedule(trigger='cron', hour=hour, minute=minutes)
                         return {
                             "messages" : "attendance_rules has been updated",
@@ -223,7 +224,7 @@ async def usageAttendancerule(data : AttendanceRulesActivation):
                             } 
                 
                 if len(is_task_is_running) <= 0: # jika tidak ada schedule maka buat schedule
-                    scheduler.add_job(automatedInsertquery, 'cron', hour=hour, minute=minutes)
+                    scheduler.add_job(userNotScanned, 'cron', hour=hour, minute=minutes)
                     scheduler.start()
                     return {
                         "messages" : "attendance_rules has been updated",

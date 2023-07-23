@@ -106,7 +106,6 @@ async def detailScannedOut():
                 "descriptions": datas_from_join.descriptions
                 })
         
-        
         return {"detail_scan_out" :datas}
         
     except SQLAlchemyError as e:

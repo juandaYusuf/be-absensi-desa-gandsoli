@@ -122,7 +122,7 @@ permission = Table(
     Column('id', Integer, primary_key=True, nullable=False),
     Column("user_id", Integer, ForeignKey("user_data.id"), nullable=False),
     Column('reason', String(200),nullable=True),
-    Column('created_at', Date, server_default=func.now())
+    Column('created_at', Date, nullable=False)
 )
 
 

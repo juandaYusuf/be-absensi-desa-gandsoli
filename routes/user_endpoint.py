@@ -1,6 +1,6 @@
 from sqlalchemy.exc import SQLAlchemyError
 from config.db import engine
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Request
 from models.tabel import user_data, attendance, presence, user_role, user_device_auth
 from schema.schemas import (LoginData, RegisterData, EditDataProfile, changePassword, UpdateRole)
 import secrets
@@ -375,3 +375,10 @@ async def userRoles():
     finally:
         conn.close()
         print("\n ==> 'userRoles' berhasil >> Koneksi di tutup <== \n")
+
+
+@router_user.get('/api/user/ip', tags=['IP'])
+async def clienIP(req: Request):
+    clien_ip = req.client.host
+    
+    return {"IP" : clien_ip}
