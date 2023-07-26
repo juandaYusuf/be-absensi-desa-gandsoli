@@ -20,6 +20,7 @@ dbURL = 'mysql+pymysql://ds_gandasoli:hcww151298@db4free.net:3306/ds_gandasoli_d
 # https://freedb.tech
 # dbURL = f'mysql+pymysql://{db_username}:{db_password}@{db_host}:{db_port}/{db_name}'
 
+# dbURL = 'postgres://leclfznu:ZBxFwuUedj1RwYb_BKVmPUSSwhkRGgKa@mahmud.db.elephantsql.com/leclfznu'
 engine= create_engine(dbURL)
 metaData = MetaData()
 conn = engine.connect()

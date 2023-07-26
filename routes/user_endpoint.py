@@ -6,7 +6,8 @@ from schema.schemas import (LoginData, RegisterData, EditDataProfile, changePass
 import secrets
 import base64
 from deta import Deta
-from config.picture_drive import drive 
+from config.picture_drive import drive
+import random
 
 
 router_user = APIRouter()
@@ -30,9 +31,9 @@ async def login(data: LoginData):
         conn = engine.connect()
         new_value = 0
         response = conn.execute(user_data.select().where(user_data.c.email == data.email)).first()
-        get_role = conn.execute(user_role.select().where(user_role.c.id == response.role_id)).first()
 
         if response :
+            get_role = conn.execute(user_role.select().where(user_role.c.id == response.role_id)).first()
             check_login_counter = conn.execute(user_data.select().where(user_data.c.id == response.id)).first()
             if check_login_counter.login_counter == None or check_login_counter.login_counter == 0:
                 # Ini kondisi ketika user baru di registrasikan atau belum pernah login
@@ -76,6 +77,7 @@ async def login(data: LoginData):
 async def register(data: RegisterData):
     try:
         conn = engine.connect()
+        # random_number = random.randint(100000, 999999)
         is_email_duplicate = conn.execute(user_data.select().where(user_data.c.email == data.email)).fetchall()
         get_role = conn.execute(user_role.select().where(user_role.c.role == data.role)).first()
         if is_email_duplicate :
@@ -106,8 +108,9 @@ async def register(data: RegisterData):
 async def edifProfileData( data: EditDataProfile):
     try:
         conn = engine.connect()
-        conn.execute(user_data.update().values(first_name = data.first_name, last_name = data.last_name, alamat = data.alamat, no_telepon = data.no_telepon).where(user_data.c.id == data.user_id))
+        conn.execute(user_data.update().values(first_name = data.first_name, last_name = data.last_name, alamat = data.alamat, no_telepon = data.no_telepon, email = data.email).where(user_data.c.id == data.user_id))
         response = conn.execute(user_data.select().where(user_data.c.id == data.user_id)).first()
+        print("response ==> \n", response)
         if response :
             return {"message" : "Data berhasil di update"}
         else :

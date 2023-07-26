@@ -1,19 +1,49 @@
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql import select
 from config.db import engine
-from config.automated_input_presence import userNotScannedin
-from fastapi import APIRouter, HTTPException
-from models.tabel import attendance_rules, attendance, user_has_scanned_in, personal_leave ,permission ,presence
+# from config.automated_input_presence import userNotScannedin
+from fastapi import APIRouter, HTTPException, BackgroundTasks
+from models.tabel import attendance_rules, attendance, user_has_scanned_in, personal_leave ,permission ,presence, user_data
 from schema.schemas import (AttendanceRules, AttendanceRulesActivation, )
-import datetime
 import pytz
+from config.email_sender_message import EmailSender
 from config.jakarta_timezone import jkt_current_datetime, jkt_current_date
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.executors.asyncio import AsyncIOExecutor
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import asyncio
+import datetime
+import time
+import threading
+import schedule
+import requests
+
 
 
 router_attendance_rules = APIRouter()
-scheduler = AsyncIOScheduler()
+# scheduler = BackgroundScheduler(timezone=pytz.timezone('Asia/Jakarta'))
 
-
+# @router_attendance_rules.get("/data_for_email_message")
+def data_for_email_message (attendance_id, created_at_in):
+    try :
+        conn = engine.connect()
+        join_query = attendance.join(user_data, attendance.c.user_id == user_data.c.id ).join(presence, attendance.c.id == presence.c.attendance_id)
+        exe_join_query = select(join_query).where(attendance.c.id == attendance_id, presence.c.created_at_in == created_at_in)
+        resuult_exe = conn.execute(exe_join_query).first()
+        if resuult_exe :
+            return resuult_exe
+        else :
+            return None
+            
+    except SQLAlchemyError as e :
+        print("Terdapat error ==> ", e)
+    finally:
+        conn.close()
+        print("\n --> 'data_for_email_message' berhasil >> Koneksi di tutup <-- \n")
+    
+    
+    
+@router_attendance_rules.get("/api/automation/automate-insert-query", tags=["AUTOMATIONS ENDPOINT"])
 async def automatedInsertquery():
     try :
         conn = engine.connect()
@@ -108,36 +138,105 @@ async def automatedInsertquery():
             if check_user_is_cuti :
                 if user_id != check_user_is_cuti.user_id :
                     # Kondisi jika user tidak cuti dan  tidak scanning_in maka langsung nyatakan tidak hadir (ALFA)
-                    conn.execute(presence.insert().values(attendance_id = attendance_id, presence_status = "alfa", descriptions = "tanpa keterangan", ))
+                    conn.execute(presence.insert().values(
+                        attendance_id = attendance_id, 
+                        presence_status = "alfa", 
+                        created_at_in=jkt_current_datetime,
+                        descriptions = "tanpa keterangan", 
+                        ))
+                    # ?Kirim emal pemberitahuan
+                    # data_for_email_message(attendance_id)
+                    email_data = data_for_email_message(attendance_id, jkt_current_datetime)
+                    if email_data is not None :
+                        EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="tanpa keterangan", date=jkt_current_datetime).sender()
                 else :
                     # cek tanggal terkahir cuti (jika tanggal terakhir cuti lebih dari tanggal sekarang dan tidak masuk kerja 'scanning-in' maka di anggap ALFA)
                     if current_date > check_user_is_cuti.end_date :
                         # Kondisi jika user ada pada tabel cuti tapi sudah melebihi tanggal terkahir cuti
-                        conn.execute(presence.insert().values(attendance_id = attendance_id, presence_status = "alfa", descriptions = "tanpa keterangan", ))
+                        conn.execute(presence.insert().values(
+                            attendance_id = attendance_id, 
+                            presence_status = "alfa", 
+                            created_at_in=jkt_current_datetime,
+                            descriptions = "tanpa keterangan", ))
+                        # ?Kirim emal pemberitahuan
+                        email_data = data_for_email_message(attendance_id, jkt_current_datetime)
+                        if email_data is not None :
+                            EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="tanpa keterangan", date=jkt_current_datetime).sender()
                     else :
                         # Kondisi jika user ada pada tabel cuti dan masih dalam kurun waktu cuti
-                        conn.execute(presence.insert().values(attendance_id = attendance_id, presence_status = "cuti", descriptions = check_user_is_cuti.descriptions, ))
+                        conn.execute(presence.insert().values(
+                            attendance_id = attendance_id, 
+                            presence_status = "cuti", 
+                            created_at_in=jkt_current_datetime,
+                            descriptions = check_user_is_cuti.descriptions, ))
             elif check_user_is_izin :
                 if user_id != check_user_is_izin.user_id :
                     # Kondisi jika user tidak izin dan  tidak scanning_in maka langsung nyatakan tidak hadir (ALFA)
-                    conn.execute(presence.insert().values(attendance_id = attendance_id, presence_status = "alfa", descriptions = "tanpa keterangan", ))
+                    conn.execute(presence.insert().values(
+                        attendance_id = attendance_id, 
+                        presence_status = "alfa", 
+                        created_at_in=jkt_current_datetime,
+                        descriptions = "tanpa keterangan", ))
+                    # ?Kirim emal pemberitahuan
+                    email_data = data_for_email_message(attendance_id, jkt_current_datetime)
+                    if email_data is not None :
+                        EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="tanpa keterangan", date=jkt_current_datetime).sender()
                 else :
                     if current_date == check_user_is_izin.created_at :
                         # Kondisi jika user sedang izin atau user izin pada tanggal saat ini
-                        conn.execute(presence.insert().values(attendance_id = attendance_id, presence_status = "izin", descriptions = check_user_is_izin.reason, ))
+                        conn.execute(presence.insert().values(
+                            attendance_id = attendance_id, 
+                            presence_status = "izin", 
+                            created_at_in=jkt_current_datetime,
+                            descriptions = check_user_is_izin.reason, ))
                     else :
                         # Kondisi jika user tidak izin atau tanggal izin lewat dari tanggal ini
-                        conn.execute(presence.insert().values(attendance_id = attendance_id, presence_status = "alfa", descriptions = "tanpa keterangan", ))
+                        conn.execute(presence.insert().values(
+                            attendance_id = attendance_id, 
+                            presence_status = "alfa", 
+                            created_at_in=jkt_current_datetime,
+                            descriptions = "tanpa keterangan", ))
+                        # ?Kirim emal pemberitahuan
+                        email_data = data_for_email_message(attendance_id, jkt_current_datetime)
+                        if email_data is not None :
+                            EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="tanpa keterangan", date=jkt_current_datetime).sender()
             else :
                 # Kondisi jika user tidak izin dan tidak cuti
-                conn.execute(presence.insert().values(attendance_id = attendance_id, presence_status = "alfa", descriptions = "tanpa keterangan", ))
+                conn.execute(presence.insert().values(
+                    attendance_id = attendance_id, 
+                    presence_status = "alfa", 
+                    created_at_in=jkt_current_datetime,
+                    descriptions = "tanpa keterangan", ))
+                # ?Kirim emal pemberitahuan
+                email_data = data_for_email_message(attendance_id, jkt_current_datetime)
+                if email_data is not None :
+                    EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="tanpa keterangan", date=jkt_current_datetime).sender()
         
         return {"message" : "setup done"}
     except SQLAlchemyError as e :
         print("terdapat error --> ", e)
     finally :
         conn.close()
-        print("\n --> 'userNotScannedin' berhasil >> Koneksi di tutup <-- \n")
+        print("\n --> 'automatedInsertquery' berhasil >> Koneksi di tutup <-- \n")
+
+
+def run_automated_insert():
+    # asyncio.run(automatedInsertquery())
+    requests.get('https://bedesagandasoli-1-j0924938.deta.app/api/automation/automate-insert-query')
+    # while True:
+    #     jkt_tz = pytz.timezone('Asia/Jakarta')
+    #     curr_datetime = datetime.datetime.now(jkt_tz)
+    #     h = int(curr_datetime.strftime('%H'))
+    #     m = int(curr_datetime.strftime('%M'))
+    #     s = int(curr_datetime.strftime('%S'))
+    #     print(curr_datetime.strftime('%H:%M:%S'))
+    #     if h == 21 and m == 13 and s == 00:
+    #         print("Menjalankan tugas")
+    #         asyncio.run(automatedInsertquery())
+    #         print("Tugas telah dijalankan")
+    #         time.sleep(30)
+    #     time.sleep(1)
+
 
 
 @router_attendance_rules.get("/api/attendance_rule/show-all-attendance-rules", tags=["ATTENDANCE RULES"])
@@ -191,7 +290,7 @@ async def deleteAttendancerule(id: int):
         print("\n ==> addAttendancerule berhasil >> Koneksi di tutup <== \n")
 
 @router_attendance_rules.put("/api/attendance_rule/usage-attendance-rules", tags=["ATTENDANCE RULES"])
-async def usageAttendancerule(data : AttendanceRulesActivation):
+async def usageAttendancerule(data : AttendanceRulesActivation, bg_task : BackgroundTasks):
     try:
         conn = engine.connect()
         reset_usages = conn.execute(attendance_rules.update().values(usage = 0))
@@ -203,39 +302,83 @@ async def usageAttendancerule(data : AttendanceRulesActivation):
                     conn.execute(attendance_rules.update().values(usage = True).where(attendance_rules.c.id == 1))
                     
                 get_attendance_time = conn.execute(attendance_rules.select().where(attendance_rules.c.usage == True)).first()
-                hour = get_attendance_time.work_start_time.hour
-                minutes = get_attendance_time.late_deadline
-                
+                hour = int( get_attendance_time.work_start_time.hour)
+                minutes = int(get_attendance_time.late_deadline)
                 
                 # !======================= Menjalankan schedul task =======================
+                # is_task_is_running = scheduler.get_jobs() #cek apakah ada task yang sedang berjalan
+                # for job in is_task_is_running: 
+                #     if job.name == "run_automated_insert": # jika da maka update jadwal nya setiap kali user melakuka perubahan pada aturan absensi di frontend
+                #         job.reschedule(trigger='cron', hour=20, minute=5)
+                #         return {
+                #             "messages" : "attendance_rules has been updated",
+                #             "work_start_time":get_attendance_time.work_start_time,
+                #             "work_times_up":get_attendance_time.work_times_up,
+                #             "late_deadline": get_attendance_time.late_deadline,
+                #             "sechedule": f"{hour}:{minutes}",
+                #             "sechedule_status":"rescheduled"
+                #             } 
                 
-                is_task_is_running = scheduler.get_jobs() #cek apakah ada task yang sedang berjalan
-                for job in is_task_is_running: 
-                    if job.name == "automatedInsertquery": # jika da maka update jadwal nya setiap kali user melakuka perubahan pada aturan absensi di frontend
-                        job.reschedule(trigger='cron', hour=hour, minute=minutes)
-                        return {
-                            "messages" : "attendance_rules has been updated",
-                            "work_start_time":get_attendance_time.work_start_time,
-                            "work_times_up":get_attendance_time.work_times_up,
-                            "late_deadline": get_attendance_time.late_deadline,
-                            "sechedule": f"{hour}:{minutes}",
-                            "sechedule_status":"rescheduled"
-                            } 
+                # if len(is_task_is_running) <= 0: # jika tidak ada schedule maka buat schedule
+                #     scheduler.add_job(run_automated_insert, 'cron', hour=20, minute=5)
+                #     scheduler.start()
+                #     return {
+                #         "messages" : "attendance_rules has been updated",
+                #         "work_start_time":get_attendance_time.work_start_time,
+                #         "work_times_up":get_attendance_time.work_times_up,
+                #         "late_deadline": get_attendance_time.late_deadline,
+                #         "sechedule": f"{hour}:{minutes}",
+                #         "sechedule_status":"add scheduled"
+                #         } 
                 
-                if len(is_task_is_running) <= 0: # jika tidak ada schedule maka buat schedule
-                    scheduler.add_job(automatedInsertquery, 'cron', hour=hour, minute=minutes)
-                    scheduler.start()
-                    return {
-                        "messages" : "attendance_rules has been updated",
-                        "work_start_time":get_attendance_time.work_start_time,
-                        "work_times_up":get_attendance_time.work_times_up,
-                        "late_deadline": get_attendance_time.late_deadline,
-                        "sechedule": f"{hour}:{minutes}",
-                        "sechedule_status":"rescheduled"
-                        } 
+                # threads = threading.Thread(target=run_automated_insert)
+                # threads.start()
+                # def run_bg_task():
+                #     schedule.every().day.at("22:49").do(run_automated_insert)
+                #     print('Shceduling.....')
+                
+                # bg_task.add_task(run_bg_task)
+                
+                return {
+                    "messages" : "attendance_rules has been updated",
+                    "work_start_time":get_attendance_time.work_start_time,
+                    "work_times_up":get_attendance_time.work_times_up,
+                    "late_deadline": get_attendance_time.late_deadline,
+                    "sechedule": f"{hour}:{minutes}",
+                    "sechedule_status":"add scheduled"
+                    } 
     except SQLAlchemyError as e:
         print("terdapat error ==> ", e)
     finally:
         conn.close()
         print("\n ==> usageAttendancerule berhasil >> Koneksi di tutup <== \n")
+
+@router_attendance_rules.get('/date')
+async def getdateFromServer():
+    email_response = EmailSender(reciver_email = "juandmark123@gmail.com", reciver_name="Yusuf juanda", reciver_presence_status="Hadir", description="blablabbalbla", date="2023-07-25").sender()
+    current_date = datetime.datetime.now()
+    jkt_tz = pytz.timezone('Asia/Jakarta')
+    jkt_date = datetime.datetime.now(jkt_tz)
+    print('test datetime')
+    return {"jkt_tz": jkt_date, "server_tz": current_date}
+
+
+
+# def scheduled_task():
+#     response = requests.post("http://127.0.0.1:8000/api/attendance_rule/usage-attendance-rules")
+#     print(response.json())
+
+# def run_scheduler():
+#     # Ganti jam dan menit sesuai dengan waktu yang Anda inginkan (contoh: 08:00)
+#     schedule.every().day.at("22:10").do(scheduled_task)
+
+#     while True:
+#         schedule.run_pending()
+#         jkt_tz = pytz.timezone('Asia/Jakarta')
+#         curr_datetime = datetime.datetime.now(jkt_tz)
+#         print(curr_datetime.strftime('%H:%M:%S'))
+#         time.sleep(1)
+
+# scheduler_thread = threading.Thread(target=run_scheduler)
+# scheduler_thread.start()
 

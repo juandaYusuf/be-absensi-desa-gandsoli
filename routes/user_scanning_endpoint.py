@@ -1,10 +1,12 @@
 from sqlalchemy.exc import SQLAlchemyError
 from config.db import engine
+from config.email_sender_message import EmailSender
 from sqlalchemy.sql import select
 from fastapi import APIRouter, HTTPException
 from models.tabel import user_has_scanned_in, user_has_scanned_out, attendance_rules, presence, attendance, user_data, detail_user_scanned
 from schema.schemas import userScanning
-from config.jakarta_timezone import jkt_current_datetime
+from config.jakarta_timezone import jkt_current_datetime, jkt_current_date
+# from config.email_sender_message import email_sender
 # from config.picture_drive import drive
 import datetime
 import pytz
@@ -28,12 +30,30 @@ router_user_scanning = APIRouter()
 #         return None
 #! ==========================================================
 
+def data_for_email_message (attendance_id, created_at_in):
+    try :
+        conn = engine.connect()
+        join_query = attendance.join(user_data, attendance.c.user_id == user_data.c.id ).join(presence, attendance.c.id == presence.c.attendance_id)
+        exe_join_query = select(join_query).where(attendance.c.id == attendance_id, presence.c.created_at_in == created_at_in)
+        resuult_exe = conn.execute(exe_join_query).first()
+        if resuult_exe :
+            return resuult_exe
+        else :
+            return None
+            
+    except SQLAlchemyError as e :
+        print("Terdapat error ==> ", e)
+    finally:
+        conn.close()
+        print("\n --> 'data_for_email_message' berhasil >> Koneksi di tutup <-- \n")
+    
 
 
 #! ========================= INSERT detail_user_scanned =================================
 async def insertDetailUserScanned(scanned_options, user_id, scan_in_id, scan_out_id, presence_id):
     try :
         conn = engine.connect()
+        user_datas = conn.execute(user_data.select().where(user_data.c.id == user_id)).first()
         if scanned_options == "in":
             insert_detail = conn.execute(detail_user_scanned.insert().values(
                 user_id = user_id, 
@@ -42,12 +62,17 @@ async def insertDetailUserScanned(scanned_options, user_id, scan_in_id, scan_out
                 presence_id = presence_id,
                 created_at=jkt_current_datetime))
             if insert_detail.rowcount > 0 :
-                print("Insert data berhasil ke tabel ==> detail_user_scanned")
-                return {"message" : f"thanks for scanned {scanned_options}"}
+                return {
+                    "message" : f"thanks for scanned {scanned_options}",
+                    "fullname": f"{user_datas.first_name} {user_datas.last_name}",
+                    "date": jkt_current_datetime}
         else :
             update_detail = conn.execute(detail_user_scanned.update().values(scan_out_id = scan_out_id).where(detail_user_scanned.c.user_id == user_id))
             if update_detail.rowcount > 0 :
-                return {"message" : f"thanks for scanned {scanned_options}"}
+                return {
+                    "message" : f"thanks for scanned {scanned_options}",
+                    "fullname": f"{user_datas.first_name} {user_datas.last_name}",
+                    "date": jkt_current_datetime}
         
         
     except SQLAlchemyError as e:
@@ -141,7 +166,10 @@ async def postUserScanningInData(data : userScanning):
                         attendance_id = get_attendance_id, 
                         presence_status = "alfa",
                         created_at_in=jkt_current_datetime,
-                        descriptions = "scan in > late deadline"))
+                        descriptions = "melebihi batas terlambat"))
+                    email_data = data_for_email_message(get_attendance_id, jkt_current_datetime)
+                    if email_data is not None :
+                        EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="Melebihi batas waktu terlambat", date=jkt_current_datetime).sender()
                     if insert_to_presence_as_alfa.rowcount > 0 :
                         # handle alfa
                         # kirim email pada email user yang terkait dan menyatakan sebagai ALFA
@@ -203,7 +231,9 @@ async def postUserScanningInData(data : userScanning):
                             created_at_in=jkt_current_datetime,
                             working = True, 
                             descriptions = come_late_description))
-                        
+                        email_data = data_for_email_message(get_attendance_id, jkt_current_datetime)
+                        if email_data is not None :
+                            EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="hadir", description=come_late_description, date=jkt_current_datetime).sender()
                         #! ========================== JOIN UNTUK TELAT ==============================
                         # join 'tabel user_has_scanned_in' dengan 'tabel attendance'
                         join_qery = user_has_scanned_in.join(attendance, user_has_scanned_in.c.attendance_id == attendance.c.id).join(user_data, user_has_scanned_in.c.user_id == user_data.c.id)
@@ -247,7 +277,9 @@ async def postUserScanningInData(data : userScanning):
                             created_at_in=jkt_current_datetime,
                             working = True, 
                             descriptions = "tepat waktu"))
-                        
+                        email_data = data_for_email_message(get_attendance_id, jkt_current_datetime)
+                        if email_data is not None :
+                            EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="hadir", description="tepat waktu", date=jkt_current_datetime).sender()
                         # jika berhasil inser data ke "presence"
                         if insert_to_presence_as_come_late.rowcount > 0 :
                             
@@ -289,6 +321,7 @@ async def postUserScanningInData(data : userScanning):
                     #! =========================================================================================
                     #! ==============KONDISI WAKTU SCAN benar-benar SAMA DENGAN ESTIMASI TERLAMBAT==============
                     #! =========================================================================================
+            
             else :
                 print("Error validasi")
             return await insertDetailUserScanned("in", user_id, scan_in_id, None, presence_id)

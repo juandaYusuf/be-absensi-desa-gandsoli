@@ -10,7 +10,7 @@ user_data = Table(
     Column('last_name', String(50)),
     Column('alamat', String(255), nullable=False),
     Column('no_telepon', String(20), nullable=False),
-    Column('email', String(20), nullable=False),
+    Column('email', String(100), nullable=False),
     Column('password', String(100), nullable=False),
     Column('j_kelamin', String(10), nullable=False),
     Column("role_id", Integer, ForeignKey("user_role.id"), nullable=False),
