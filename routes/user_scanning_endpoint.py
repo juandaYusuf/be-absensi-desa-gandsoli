@@ -233,7 +233,7 @@ async def postUserScanningInData(data : userScanning):
                             descriptions = come_late_description))
                         email_data = data_for_email_message(get_attendance_id, jkt_current_datetime)
                         if email_data is not None :
-                            EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="hadir", description=come_late_description, date=jkt_current_datetime).sender()
+                            EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="Alfa", description=come_late_description, date=jkt_current_datetime).sender()
                         #! ========================== JOIN UNTUK TELAT ==============================
                         # join 'tabel user_has_scanned_in' dengan 'tabel attendance'
                         join_qery = user_has_scanned_in.join(attendance, user_has_scanned_in.c.attendance_id == attendance.c.id).join(user_data, user_has_scanned_in.c.user_id == user_data.c.id)

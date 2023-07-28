@@ -44,4 +44,4 @@ class EmailSender():
             smtp.login(email_address_sender, email_password_sender)
             smtp.send_message(msg)
         
-        return fill_data
+        # return fill_data
