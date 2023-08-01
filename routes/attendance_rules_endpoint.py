@@ -370,7 +370,6 @@ async def usageAttendancerule(data : AttendanceRulesActivation, bg_task : Backgr
 
 @router_attendance_rules.get('/date')
 async def getdateFromServer():
-    email_response = EmailSender(reciver_email = "juandmark123@gmail.com", reciver_name="Yusuf juanda", reciver_presence_status="Hadir", description="blablabbalbla", date="2023-07-25").sender()
     current_date = datetime.datetime.now()
     jkt_tz = pytz.timezone('Asia/Jakarta')
     jkt_date = datetime.datetime.now(jkt_tz)
