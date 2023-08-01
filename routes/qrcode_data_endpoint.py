@@ -18,7 +18,7 @@ async def getQrCodeData(data_option : str):
 
     # ===================== tmstmp =====================
     # Membuat timestamp saat ini
-    timestamp = jkt_current_datetime
+    timestamp = jkt_current_datetime()
     # timestamp dalam format khusus dengan padding nol
     timestamp_string = timestamp.strftime("%Y%m%d%H%M%S%f")
     # 20 digit pertama
@@ -38,11 +38,11 @@ async def getQrCodeData(data_option : str):
             insert_data_qrcode_in = conn.execute(qrcode_data_in.insert().values(
                 tmstmp = timestamp_string, 
                 status = "in",
-                created_at= jkt_current_date))
+                created_at= jkt_current_date()))
             insert_data_qrcode_out = conn.execute(qrcode_data_out.insert().values(
                 tmstmp = timestamp_string,
                 status = "out",
-                created_at= jkt_current_date))
+                created_at= jkt_current_date()))
             if insert_data_qrcode_in.rowcount > 0 and insert_data_qrcode_out.rowcount > 0 :
                 # insert data berhasil
                 # dan tampilin data
@@ -55,7 +55,7 @@ async def getQrCodeData(data_option : str):
                         qrcode_in_id = result_data_qrcode_in.id, 
                         qrcode_out_id = result_data_qrcode_out.id, 
                         tmstmp = timestamp_string,
-                        created_at= jkt_current_date))
+                        created_at= jkt_current_date()))
                     if insert_qrcode_data.rowcount > 0:
                         # jika data 'tabel qrcode_data' berhasil di input
                         # check data yang direquest user
@@ -92,11 +92,11 @@ async def getQrCodeData(data_option : str):
                 insert_data_qrcode_in = conn.execute(qrcode_data_in.insert().values(
                     tmstmp = timestamp_string, 
                     status = "in",
-                    created_at= jkt_current_date))
+                    created_at= jkt_current_date()))
                 insert_data_qrcode_out = conn.execute(qrcode_data_out.insert().values(
                     tmstmp = timestamp_string, 
                     status = "out",
-                    created_at= jkt_current_date))
+                    created_at= jkt_current_date()))
                 if insert_data_qrcode_in.rowcount > 0 and insert_data_qrcode_out.rowcount > 0 :
                     qrcode_in_after_insert = conn.execute(qrcode_data_in.select().where(qrcode_data_in.c.tmstmp == timestamp_string)).first()
                     qrcode_out_after_insert = conn.execute(qrcode_data_out.select().where(qrcode_data_out.c.tmstmp == timestamp_string)).first()
@@ -105,7 +105,7 @@ async def getQrCodeData(data_option : str):
                         qrcode_in_id = qrcode_in_after_insert.id, 
                         qrcode_out_id = qrcode_out_after_insert.id, 
                         tmstmp = timestamp_string,
-                        created_at= jkt_current_date))
+                        created_at= jkt_current_date()))
                     if insert_qrcode_data.rowcount > 0:
                         print("berhasil insert_qrcode_data")
                         get_qrcode_data = conn.execute(qrcode_data.select().where(qrcode_data.c.tmstmp == timestamp_string)).first()
