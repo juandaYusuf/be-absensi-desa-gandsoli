@@ -46,7 +46,7 @@ async def permissionSubmission(data: UserPermission) :
                 insert_submission = conn.execute(permission.insert().values(user_id = data.user_id, reason = data.reason, created_at = data.created_at))
                 if insert_submission.rowcount > 0 :
                     join_query = permission.join(user_data, permission.c.user_id == user_data.c.id)
-                    result_join = select([user_data.c.first_name, user_data.c.last_name, permission.c.reason]).select_from(join_query).where(permission.c.user_id == data.user_id)
+                    result_join = select([user_data.c.first_name, user_data.c.last_name, permission.c.reason, permission.c.created_at]).select_from(join_query).where(permission.c.user_id == data.user_id)
                     execute_result = conn.execute(result_join).first()
                     return execute_result
             else :
@@ -72,7 +72,7 @@ async def permissionSubmission(data: UserPermission) :
     except SQLAlchemyError as e:
         print("terdapat error ==> ", e)
     finally:
-        print("\n ==> 'personalLeaveSubmission' berhasil >> Koneksi di tutup <== \n")
+        print("\n ==> 'permissionSubmission' berhasil >> Koneksi di tutup <== \n")
 
 
 @router_user_permission.get('/api/user-permission/show-all-user-permission/{options}' , tags=['USER PERMISSION'])
@@ -83,30 +83,42 @@ async def showAllPermissionDatas(options : str) :
         current_datetime = datetime.datetime.now(jakarta_tz)
         date_on_today = current_datetime.date()
         
-        user_permission_datas = []
+        user_permission_datas_for_today = []
+        user_permission_datas_for_all = []
         join_query = permission.join(user_data, permission.c.user_id == user_data.c.id)
-        result_join = None
+        result_join = select([user_data.c.first_name, user_data.c.last_name, user_data.c.email, user_data.c.no_telepon, user_data.c.profile_picture, permission.c.reason, permission.c.created_at]).select_from(join_query)
         
-        if options == "today":
-            result_join = select([user_data.c.first_name, user_data.c.last_name, user_data.c.email, user_data.c.no_telepon, user_data.c.profile_picture, permission.c.reason, permission.c.created_at]).select_from(join_query).where(permission.c.created_at >= date_on_today)
-        
-        if options == "all":
-            result_join = select([user_data.c.first_name, user_data.c.last_name, user_data.c.email, user_data.c.no_telepon, user_data.c.profile_picture, permission.c.reason, permission.c.created_at]).select_from(join_query)
         
         execute_result = conn.execute(result_join).fetchall()
         
         for items in execute_result :
-            user_permission_datas.append({
-                "first_name": items.first_name,
-                "last_name": items.last_name,
-                "email": items.email,
-                "no_telepon": items.no_telepon,
-                "created_at" : items.created_at,
-                "profile_picture": await profilePictures(items.profile_picture),
-                "reason": items.reason
-            })
+            if options == "today" and items.created_at == date_on_today:
+                print(options, items.created_at == date_on_today)
+                user_permission_datas_for_today.append({
+                    "first_name": items.first_name,
+                    "last_name": items.last_name,
+                    "email": items.email,
+                    "no_telepon": items.no_telepon,
+                    "created_at" : items.created_at,
+                    "profile_picture": await profilePictures(items.profile_picture),
+                    "reason": items.reason
+                })
+            else :
+                user_permission_datas_for_all.append({
+                    "first_name": items.first_name,
+                    "last_name": items.last_name,
+                    "email": items.email,
+                    "no_telepon": items.no_telepon,
+                    "created_at" : items.created_at,
+                    "profile_picture": await profilePictures(items.profile_picture),
+                    "reason": items.reason
+                })
         
-        return user_permission_datas
+        if options == "today":
+            return user_permission_datas_for_today
+        else :
+            return user_permission_datas_for_all
+            
     except SQLAlchemyError as e:
         print("terdapat error ==> ", e)
     finally:
