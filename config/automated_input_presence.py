@@ -1,7 +1,7 @@
 from sqlalchemy.exc import SQLAlchemyError
 from config.db import engine
 from models.tabel import attendance, presence, user_has_scanned_in,personal_leave, permission
-from config.jakarta_timezone import jkt_current_date, jkt_current_datetime, jkt_current_time
+from config.jakarta_timezone import jkt_current_date
 
 
 #! Anggap user yang tidak melakukan scan_in sebagai user yang tidak hadir (Endpoin ini di hit ketika waktu keluar kerja telah berakhir)
@@ -10,7 +10,7 @@ async def userNotScannedin():
         
         conn = engine.connect()
         # cek tanggal sekarang kemudian anggap user yang tidak melakukan scann_in sebagai user yang tidak hadir (ALFA)
-        current_date = jkt_current_date
+        current_date = jkt_current_date()
         #? ================================ ALGORITHM =======================================
         # Dapatkan data user yang sudah melakukan scan hari ini
         # Dapatkan seluruh user
