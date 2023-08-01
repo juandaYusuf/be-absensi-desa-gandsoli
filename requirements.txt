@@ -9,7 +9,5 @@ websockets==11.0.3
 APScheduler==3.10.1
 schedule==1.2.0
 requests==2.31.0
-
-
-
+cryptography==41.0.2
 # Pillow==9.4.0
