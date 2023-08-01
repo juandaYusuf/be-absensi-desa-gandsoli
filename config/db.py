@@ -1,11 +1,21 @@
 # Koneksi database
 from sqlalchemy import create_engine, MetaData
 
-db_username = "freedb_desa_gandasoli"
-db_password = "$3Apq#%kPsA7*hr"
-db_host = "sql.freedb.tech"
+# db_username = "freedb_desa_gandasoli"
+# db_password = "$3Apq#%kPsA7*hr"
+# db_host = "sql.freedb.tech"
+# db_port = "3306"
+# db_name = "freedb_absn_ds_gndsl"
+
+
+
+db_username = "root"
+db_password = ""
+db_host = "localhost"
 db_port = "3306"
-db_name = "freedb_absn_ds_gndsl"
+db_name = "absensi_desa_gandasoli"
+
+
 
 # db4free.net
 dbURL = 'mysql+pymysql://ds_gandasoli:hcww151298@db4free.net:3306/ds_gandasoli_db'
