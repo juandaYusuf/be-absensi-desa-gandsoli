@@ -46,6 +46,7 @@ def data_for_email_message (attendance_id, created_at_in):
 @router_attendance_rules.get("/api/automation/automate-insert-query", tags=["AUTOMATIONS ENDPOINT"])
 async def automatedInsertquery():
     try :
+        day_name_of_ind = ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu', 'minggu']
         conn = engine.connect()
         # cek tanggal sekarang kemudian anggap user yang tidak melakukan scann_in sebagai user yang tidak hadir (ALFA)
         current_date = jkt_current_date
@@ -56,6 +57,15 @@ async def automatedInsertquery():
         # cek apakah ada user yang cuti jika ada insert cuti ke tabel presence
         # insert yang tidak hadir ke tabel presence
         #? ==================================================================================
+        
+        # dapatkan tanggal sekarang
+        curren_date = datetime.date.today()
+        
+        # dapatkan index hari dari hari ini 
+        index_of_today = curren_date.weekday()
+        
+        # dapatkan nama hari dalam bahasa indonesia
+        result_day_name_of_ind = day_name_of_ind[index_of_today]
         
         get_data_from_attendance = conn.execute(attendance.select()).fetchall()
         get_user_scanned_in = conn.execute(user_has_scanned_in.select().where(user_has_scanned_in.c.created_at > current_date)).fetchall()
@@ -72,87 +82,109 @@ async def automatedInsertquery():
         user_id_do_not_scan_in_today = []
         attendance_id_do_not_scan_in_today = []
         
+        #* Cek apakah hari minggu/sabtu. Maka jangan ngapangapain
         
         
-        #* ===========================================================================
-        # Loop seluruh isi data dari tabel user_data (var 'get_data_from_attendance') 
-        # dan ambil 'user_id' nya saja
-        for user_id_of_attendance in get_data_from_attendance :
-            only_user_id_of_attendance.append(user_id_of_attendance.user_id)
-        #* ===========================================================================
-        
-        
-        
-        #* ===========================================================================
-        # Loop seleuruh isi data dari tabel attendance (var 'get_data_from_attendance') 
-        # dan ambil 'user_id' nya saja
-        for id_of_attendance in get_data_from_attendance :
-            only_attendance_id.append(id_of_attendance.id)
-        #* ===========================================================================
-        
-        
-        
-        #* ===========================================================================
-        # Loop seleuruh isi data dari tabel user_has_scanned_in (var 'get_user_scanned_in') 
-        # dan ambil 'user_id' nya saja
-        for user_id_of_scanned_in in get_user_scanned_in :
-            only_user_id_of_scanned_in.append(user_id_of_scanned_in.user_id)
-        #* ===========================================================================
-        
-        
-        #* ===========================================================================
-        # Loop seluruh user_id dan cek user dengan id berapa yang tidak melakukan scan_in 
-        for user_id in only_user_id_of_attendance :
-            if user_id not in only_user_id_of_scanned_in :
-                # kondisi dimana user yang tidak melakukan scan_in dan yang akan di anggap ALFA
-                attendance_id = conn.execute(attendance.select().where(attendance.c.user_id == user_id, )).first()
-                user_id_do_not_scan_in_today.append({
-                    "attendance_id": attendance_id.id,
-                    "user_id" : attendance_id.user_id
-                    })
-            else :
-                # kondisi dimana user yang melakukan scan_in (HADIR)
-                # tidak akan melakukan apapunm pada kondisi ini
-                # ini diimplementasikan karena untuk mempermudah jika sistem ini akan dikembangkan lagi
-                attendance_id = conn.execute(attendance.select().where(attendance.c.user_id == user_id)).first()
-                user_id_has_scanned_in_today.append({
-                    "attendance_id": attendance_id.id,
-                    "user_id" : attendance_id.user_id
-                    })
-        #* ===========================================================================
-        
-        
-        
-        #! ================================ Nyatakan tidak hadir ================================
-        # Loop lagi user yang tidak melakukan scan_in pada (var 'user_id_do_not_scan_in_today')
-        # kemudian insert ke tabel 'presence' untuk dinyatakan tidak hadir
-        for absent_users in user_id_do_not_scan_in_today :
-            attendance_id = absent_users["attendance_id"] # variabel ini untuk mengambil value dari objek yang terdapat dalam array
-            user_id = absent_users["user_id"] # variabel ini untuk mengambil value dari objek yang terdapat dalam array
-            # Sebelum menyatakan alfa cek dulu jika ada user yang izin atau cuti maka jangan di anggap alfa
-            check_user_is_cuti = conn.execute(personal_leave.select().where(personal_leave.c.user_id == user_id)).first()
-            check_user_is_izin = conn.execute(permission.select().where(permission.c.user_id == user_id)).first()
+        if result_day_name_of_ind != 'sabtu' or result_day_name_of_ind != 'minggu':
             
-            #* ❗🪲============================== prediksi akan terjadinya bug pada logic ini ============================== belum diketahui BUG-nya apa
+            #* ===========================================================================
+            # Loop seluruh isi data dari tabel user_data (var 'get_data_from_attendance') 
+            # dan ambil 'user_id' nya saja
+            for user_id_of_attendance in get_data_from_attendance :
+                only_user_id_of_attendance.append(user_id_of_attendance.user_id)
+            #* ===========================================================================
             
-            if check_user_is_cuti :
-                if user_id != check_user_is_cuti.user_id :
-                    # Kondisi jika user tidak cuti dan  tidak scanning_in maka langsung nyatakan tidak hadir (ALFA)
-                    conn.execute(presence.insert().values(
-                        attendance_id = attendance_id, 
-                        presence_status = "alfa", 
-                        created_at_in=jkt_current_datetime,
-                        descriptions = "tanpa keterangan", 
-                        ))
-                    # ?Kirim emal pemberitahuan
-                    # data_for_email_message(attendance_id)
-                    email_data = data_for_email_message(attendance_id, jkt_current_datetime)
-                    if email_data is not None :
-                        EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="tanpa keterangan", date=jkt_current_datetime).sender()
+            
+            
+            #* ===========================================================================
+            # Loop seleuruh isi data dari tabel attendance (var 'get_data_from_attendance') 
+            # dan ambil 'user_id' nya saja
+            for id_of_attendance in get_data_from_attendance :
+                only_attendance_id.append(id_of_attendance.id)
+            #* ===========================================================================
+            
+            
+            
+            #* ===========================================================================
+            # Loop seleuruh isi data dari tabel user_has_scanned_in (var 'get_user_scanned_in') 
+            # dan ambil 'user_id' nya saja
+            for user_id_of_scanned_in in get_user_scanned_in :
+                only_user_id_of_scanned_in.append(user_id_of_scanned_in.user_id)
+            #* ===========================================================================
+            
+            
+            #* ===========================================================================
+            # Loop seluruh user_id dan cek user dengan id berapa yang tidak melakukan scan_in 
+            for user_id in only_user_id_of_attendance :
+                if user_id not in only_user_id_of_scanned_in :
+                    # kondisi dimana user yang tidak melakukan scan_in dan yang akan di anggap ALFA
+                    attendance_id = conn.execute(attendance.select().where(attendance.c.user_id == user_id, )).first()
+                    user_id_do_not_scan_in_today.append({
+                        "attendance_id": attendance_id.id,
+                        "user_id" : attendance_id.user_id
+                        })
                 else :
-                    # cek tanggal terkahir cuti (jika tanggal terakhir cuti lebih dari tanggal sekarang dan tidak masuk kerja 'scanning-in' maka di anggap ALFA)
-                    if current_date > check_user_is_cuti.end_date :
-                        # Kondisi jika user ada pada tabel cuti tapi sudah melebihi tanggal terkahir cuti
+                    # kondisi dimana user yang melakukan scan_in (HADIR)
+                    # tidak akan melakukan apapunm pada kondisi ini
+                    # ini diimplementasikan karena untuk mempermudah jika sistem ini akan dikembangkan lagi
+                    attendance_id = conn.execute(attendance.select().where(attendance.c.user_id == user_id)).first()
+                    user_id_has_scanned_in_today.append({
+                        "attendance_id": attendance_id.id,
+                        "user_id" : attendance_id.user_id
+                        })
+            #* ===========================================================================
+            
+            
+            
+            #! ================================ Nyatakan tidak hadir ================================
+            # Loop lagi user yang tidak melakukan scan_in pada (var 'user_id_do_not_scan_in_today')
+            # kemudian insert ke tabel 'presence' untuk dinyatakan tidak hadir
+            for absent_users in user_id_do_not_scan_in_today :
+                attendance_id = absent_users["attendance_id"] # variabel ini untuk mengambil value dari objek yang terdapat dalam array
+                user_id = absent_users["user_id"] # variabel ini untuk mengambil value dari objek yang terdapat dalam array
+                # Sebelum menyatakan alfa cek dulu jika ada user yang izin atau cuti maka jangan di anggap alfa
+                check_user_is_cuti = conn.execute(personal_leave.select().where(personal_leave.c.user_id == user_id)).first()
+                check_user_is_izin = conn.execute(permission.select().where(permission.c.user_id == user_id)).first()
+                
+                #* ❗🪲============================== prediksi akan terjadinya bug pada logic ini ============================== belum diketahui BUG-nya apa
+                
+                if check_user_is_cuti :
+                    if user_id != check_user_is_cuti.user_id :
+                        # Kondisi jika user tidak cuti dan  tidak scanning_in maka langsung nyatakan tidak hadir (ALFA)
+                        conn.execute(presence.insert().values(
+                            attendance_id = attendance_id, 
+                            presence_status = "alfa", 
+                            created_at_in=jkt_current_datetime,
+                            descriptions = "tanpa keterangan", 
+                            ))
+                        # ?Kirim emal pemberitahuan
+                        # data_for_email_message(attendance_id)
+                        email_data = data_for_email_message(attendance_id, jkt_current_datetime)
+                        if email_data is not None :
+                            EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="tanpa keterangan", date=jkt_current_datetime).sender()
+                    else :
+                        # cek tanggal terkahir cuti (jika tanggal terakhir cuti lebih dari tanggal sekarang dan tidak masuk kerja 'scanning-in' maka di anggap ALFA)
+                        if current_date > check_user_is_cuti.end_date :
+                            # Kondisi jika user ada pada tabel cuti tapi sudah melebihi tanggal terkahir cuti
+                            conn.execute(presence.insert().values(
+                                attendance_id = attendance_id, 
+                                presence_status = "alfa", 
+                                created_at_in=jkt_current_datetime,
+                                descriptions = "tanpa keterangan", ))
+                            # ?Kirim emal pemberitahuan
+                            email_data = data_for_email_message(attendance_id, jkt_current_datetime)
+                            if email_data is not None :
+                                EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="tanpa keterangan", date=jkt_current_datetime).sender()
+                        else :
+                            # Kondisi jika user ada pada tabel cuti dan masih dalam kurun waktu cuti
+                            conn.execute(presence.insert().values(
+                                attendance_id = attendance_id, 
+                                presence_status = "cuti", 
+                                created_at_in=jkt_current_datetime,
+                                descriptions = check_user_is_cuti.descriptions, ))
+                elif check_user_is_izin :
+                    if user_id != check_user_is_izin.user_id :
+                        # Kondisi jika user tidak izin dan  tidak scanning_in maka langsung nyatakan tidak hadir (ALFA)
                         conn.execute(presence.insert().values(
                             attendance_id = attendance_id, 
                             presence_status = "alfa", 
@@ -163,15 +195,26 @@ async def automatedInsertquery():
                         if email_data is not None :
                             EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="tanpa keterangan", date=jkt_current_datetime).sender()
                     else :
-                        # Kondisi jika user ada pada tabel cuti dan masih dalam kurun waktu cuti
-                        conn.execute(presence.insert().values(
-                            attendance_id = attendance_id, 
-                            presence_status = "cuti", 
-                            created_at_in=jkt_current_datetime,
-                            descriptions = check_user_is_cuti.descriptions, ))
-            elif check_user_is_izin :
-                if user_id != check_user_is_izin.user_id :
-                    # Kondisi jika user tidak izin dan  tidak scanning_in maka langsung nyatakan tidak hadir (ALFA)
+                        if current_date == check_user_is_izin.created_at :
+                            # Kondisi jika user sedang izin atau user izin pada tanggal saat ini
+                            conn.execute(presence.insert().values(
+                                attendance_id = attendance_id, 
+                                presence_status = "izin", 
+                                created_at_in=jkt_current_datetime,
+                                descriptions = check_user_is_izin.reason, ))
+                        else :
+                            # Kondisi jika user tidak izin atau tanggal izin lewat dari tanggal ini
+                            conn.execute(presence.insert().values(
+                                attendance_id = attendance_id, 
+                                presence_status = "alfa", 
+                                created_at_in=jkt_current_datetime,
+                                descriptions = "tanpa keterangan", ))
+                            # ?Kirim emal pemberitahuan
+                            email_data = data_for_email_message(attendance_id, jkt_current_datetime)
+                            if email_data is not None :
+                                EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="tanpa keterangan", date=jkt_current_datetime).sender()
+                else :
+                    # Kondisi jika user tidak izin dan tidak cuti
                     conn.execute(presence.insert().values(
                         attendance_id = attendance_id, 
                         presence_status = "alfa", 
@@ -181,38 +224,10 @@ async def automatedInsertquery():
                     email_data = data_for_email_message(attendance_id, jkt_current_datetime)
                     if email_data is not None :
                         EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="tanpa keterangan", date=jkt_current_datetime).sender()
-                else :
-                    if current_date == check_user_is_izin.created_at :
-                        # Kondisi jika user sedang izin atau user izin pada tanggal saat ini
-                        conn.execute(presence.insert().values(
-                            attendance_id = attendance_id, 
-                            presence_status = "izin", 
-                            created_at_in=jkt_current_datetime,
-                            descriptions = check_user_is_izin.reason, ))
-                    else :
-                        # Kondisi jika user tidak izin atau tanggal izin lewat dari tanggal ini
-                        conn.execute(presence.insert().values(
-                            attendance_id = attendance_id, 
-                            presence_status = "alfa", 
-                            created_at_in=jkt_current_datetime,
-                            descriptions = "tanpa keterangan", ))
-                        # ?Kirim emal pemberitahuan
-                        email_data = data_for_email_message(attendance_id, jkt_current_datetime)
-                        if email_data is not None :
-                            EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="tanpa keterangan", date=jkt_current_datetime).sender()
-            else :
-                # Kondisi jika user tidak izin dan tidak cuti
-                conn.execute(presence.insert().values(
-                    attendance_id = attendance_id, 
-                    presence_status = "alfa", 
-                    created_at_in=jkt_current_datetime,
-                    descriptions = "tanpa keterangan", ))
-                # ?Kirim emal pemberitahuan
-                email_data = data_for_email_message(attendance_id, jkt_current_datetime)
-                if email_data is not None :
-                    EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="tanpa keterangan", date=jkt_current_datetime).sender()
+            return {"message" : "setup done"}
+        else :
+            return {"message" : "weekend"}
         
-        return {"message" : "setup done"}
     except SQLAlchemyError as e :
         print("terdapat error --> ", e)
     finally :
@@ -301,52 +316,52 @@ async def usageAttendancerule(data : AttendanceRulesActivation, bg_task : Backgr
                 if cek_usage == None :
                     conn.execute(attendance_rules.update().values(usage = True).where(attendance_rules.c.id == 1))
                     
-                get_attendance_time = conn.execute(attendance_rules.select().where(attendance_rules.c.usage == True)).first()
-                hour = int( get_attendance_time.work_start_time.hour)
-                minutes = int(get_attendance_time.late_deadline)
-                
-                # !======================= Menjalankan schedul task =======================
-                # is_task_is_running = scheduler.get_jobs() #cek apakah ada task yang sedang berjalan
-                # for job in is_task_is_running: 
-                #     if job.name == "run_automated_insert": # jika da maka update jadwal nya setiap kali user melakuka perubahan pada aturan absensi di frontend
-                #         job.reschedule(trigger='cron', hour=20, minute=5)
-                #         return {
-                #             "messages" : "attendance_rules has been updated",
-                #             "work_start_time":get_attendance_time.work_start_time,
-                #             "work_times_up":get_attendance_time.work_times_up,
-                #             "late_deadline": get_attendance_time.late_deadline,
-                #             "sechedule": f"{hour}:{minutes}",
-                #             "sechedule_status":"rescheduled"
-                #             } 
-                
-                # if len(is_task_is_running) <= 0: # jika tidak ada schedule maka buat schedule
-                #     scheduler.add_job(run_automated_insert, 'cron', hour=20, minute=5)
-                #     scheduler.start()
-                #     return {
-                #         "messages" : "attendance_rules has been updated",
-                #         "work_start_time":get_attendance_time.work_start_time,
-                #         "work_times_up":get_attendance_time.work_times_up,
-                #         "late_deadline": get_attendance_time.late_deadline,
-                #         "sechedule": f"{hour}:{minutes}",
-                #         "sechedule_status":"add scheduled"
-                #         } 
-                
-                # threads = threading.Thread(target=run_automated_insert)
-                # threads.start()
-                # def run_bg_task():
-                #     schedule.every().day.at("22:49").do(run_automated_insert)
-                #     print('Shceduling.....')
-                
-                # bg_task.add_task(run_bg_task)
-                
-                return {
-                    "messages" : "attendance_rules has been updated",
-                    "work_start_time":get_attendance_time.work_start_time,
-                    "work_times_up":get_attendance_time.work_times_up,
-                    "late_deadline": get_attendance_time.late_deadline,
-                    "sechedule": f"{hour}:{minutes}",
-                    "sechedule_status":"add scheduled"
-                    } 
+                    get_attendance_time = conn.execute(attendance_rules.select().where(attendance_rules.c.usage == True)).first()
+                    hour = int( get_attendance_time.work_start_time.hour)
+                    minutes = int(get_attendance_time.late_deadline)
+                    
+                    # !======================= Menjalankan schedul task =======================
+                    # is_task_is_running = scheduler.get_jobs() #cek apakah ada task yang sedang berjalan
+                    # for job in is_task_is_running: 
+                    #     if job.name == "run_automated_insert": # jika da maka update jadwal nya setiap kali user melakuka perubahan pada aturan absensi di frontend
+                    #         job.reschedule(trigger='cron', hour=20, minute=5)
+                    #         return {
+                    #             "messages" : "attendance_rules has been updated",
+                    #             "work_start_time":get_attendance_time.work_start_time,
+                    #             "work_times_up":get_attendance_time.work_times_up,
+                    #             "late_deadline": get_attendance_time.late_deadline,
+                    #             "sechedule": f"{hour}:{minutes}",
+                    #             "sechedule_status":"rescheduled"
+                    #             } 
+                    
+                    # if len(is_task_is_running) <= 0: # jika tidak ada schedule maka buat schedule
+                    #     scheduler.add_job(run_automated_insert, 'cron', hour=20, minute=5)
+                    #     scheduler.start()
+                    #     return {
+                    #         "messages" : "attendance_rules has been updated",
+                    #         "work_start_time":get_attendance_time.work_start_time,
+                    #         "work_times_up":get_attendance_time.work_times_up,
+                    #         "late_deadline": get_attendance_time.late_deadline,
+                    #         "sechedule": f"{hour}:{minutes}",
+                    #         "sechedule_status":"add scheduled"
+                    #         } 
+                    
+                    # threads = threading.Thread(target=run_automated_insert)
+                    # threads.start()
+                    # def run_bg_task():
+                    #     schedule.every().day.at("22:49").do(run_automated_insert)
+                    #     print('Shceduling.....')
+                    
+                    # bg_task.add_task(run_bg_task)
+                    
+                    return {
+                        "messages" : "attendance_rules has been updated",
+                        "work_start_time":get_attendance_time.work_start_time,
+                        "work_times_up":get_attendance_time.work_times_up,
+                        "late_deadline": get_attendance_time.late_deadline,
+                        "sechedule": f"{hour}:{minutes}",
+                        "sechedule_status":"add scheduled"
+                        } 
     except SQLAlchemyError as e:
         print("terdapat error ==> ", e)
     finally:
