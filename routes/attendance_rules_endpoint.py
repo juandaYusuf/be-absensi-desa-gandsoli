@@ -316,52 +316,52 @@ async def usageAttendancerule(data : AttendanceRulesActivation, bg_task : Backgr
                 if cek_usage == None :
                     conn.execute(attendance_rules.update().values(usage = True).where(attendance_rules.c.id == 1))
                     
-                    get_attendance_time = conn.execute(attendance_rules.select().where(attendance_rules.c.usage == True)).first()
-                    hour = int( get_attendance_time.work_start_time.hour)
-                    minutes = int(get_attendance_time.late_deadline)
-                    
-                    # !======================= Menjalankan schedul task =======================
-                    # is_task_is_running = scheduler.get_jobs() #cek apakah ada task yang sedang berjalan
-                    # for job in is_task_is_running: 
-                    #     if job.name == "run_automated_insert": # jika da maka update jadwal nya setiap kali user melakuka perubahan pada aturan absensi di frontend
-                    #         job.reschedule(trigger='cron', hour=20, minute=5)
-                    #         return {
-                    #             "messages" : "attendance_rules has been updated",
-                    #             "work_start_time":get_attendance_time.work_start_time,
-                    #             "work_times_up":get_attendance_time.work_times_up,
-                    #             "late_deadline": get_attendance_time.late_deadline,
-                    #             "sechedule": f"{hour}:{minutes}",
-                    #             "sechedule_status":"rescheduled"
-                    #             } 
-                    
-                    # if len(is_task_is_running) <= 0: # jika tidak ada schedule maka buat schedule
-                    #     scheduler.add_job(run_automated_insert, 'cron', hour=20, minute=5)
-                    #     scheduler.start()
-                    #     return {
-                    #         "messages" : "attendance_rules has been updated",
-                    #         "work_start_time":get_attendance_time.work_start_time,
-                    #         "work_times_up":get_attendance_time.work_times_up,
-                    #         "late_deadline": get_attendance_time.late_deadline,
-                    #         "sechedule": f"{hour}:{minutes}",
-                    #         "sechedule_status":"add scheduled"
-                    #         } 
-                    
-                    # threads = threading.Thread(target=run_automated_insert)
-                    # threads.start()
-                    # def run_bg_task():
-                    #     schedule.every().day.at("22:49").do(run_automated_insert)
-                    #     print('Shceduling.....')
-                    
-                    # bg_task.add_task(run_bg_task)
-                    
-                    return {
-                        "messages" : "attendance_rules has been updated",
-                        "work_start_time":get_attendance_time.work_start_time,
-                        "work_times_up":get_attendance_time.work_times_up,
-                        "late_deadline": get_attendance_time.late_deadline,
-                        "sechedule": f"{hour}:{minutes}",
-                        "sechedule_status":"add scheduled"
-                        } 
+                get_attendance_time = conn.execute(attendance_rules.select().where(attendance_rules.c.usage == True)).first()
+                hour = int( get_attendance_time.work_start_time.hour)
+                minutes = int(get_attendance_time.late_deadline)
+                
+                # !======================= Menjalankan schedul task =======================
+                # is_task_is_running = scheduler.get_jobs() #cek apakah ada task yang sedang berjalan
+                # for job in is_task_is_running: 
+                #     if job.name == "run_automated_insert": # jika da maka update jadwal nya setiap kali user melakuka perubahan pada aturan absensi di frontend
+                #         job.reschedule(trigger='cron', hour=20, minute=5)
+                #         return {
+                #             "messages" : "attendance_rules has been updated",
+                #             "work_start_time":get_attendance_time.work_start_time,
+                #             "work_times_up":get_attendance_time.work_times_up,
+                #             "late_deadline": get_attendance_time.late_deadline,
+                #             "sechedule": f"{hour}:{minutes}",
+                #             "sechedule_status":"rescheduled"
+                #             } 
+                
+                # if len(is_task_is_running) <= 0: # jika tidak ada schedule maka buat schedule
+                #     scheduler.add_job(run_automated_insert, 'cron', hour=20, minute=5)
+                #     scheduler.start()
+                #     return {
+                #         "messages" : "attendance_rules has been updated",
+                #         "work_start_time":get_attendance_time.work_start_time,
+                #         "work_times_up":get_attendance_time.work_times_up,
+                #         "late_deadline": get_attendance_time.late_deadline,
+                #         "sechedule": f"{hour}:{minutes}",
+                #         "sechedule_status":"add scheduled"
+                #         } 
+                
+                # threads = threading.Thread(target=run_automated_insert)
+                # threads.start()
+                # def run_bg_task():
+                #     schedule.every().day.at("22:49").do(run_automated_insert)
+                #     print('Shceduling.....')
+                
+                # bg_task.add_task(run_bg_task)
+                
+                return {
+                    "messages" : "attendance_rules has been updated",
+                    "work_start_time":get_attendance_time.work_start_time,
+                    "work_times_up":get_attendance_time.work_times_up,
+                    "late_deadline": get_attendance_time.late_deadline,
+                    "sechedule": f"{hour}:{minutes}",
+                    "sechedule_status":"add scheduled"
+                    } 
     except SQLAlchemyError as e:
         print("terdapat error ==> ", e)
     finally:
