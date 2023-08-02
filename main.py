@@ -14,6 +14,7 @@ from endpoint.endpoints import (
     qrcode_data, user_scanning,
     detail_scanned, personal_leave,
     user_permission,
+    user_role
     # notifs_ws
     )
 from config.db import conn, engine
@@ -63,4 +64,5 @@ app.include_router(user_scanning)
 app.include_router(detail_scanned)
 app.include_router(personal_leave)
 app.include_router(user_permission)
+app.include_router(user_role)
 # app.include_router(notifs_ws)

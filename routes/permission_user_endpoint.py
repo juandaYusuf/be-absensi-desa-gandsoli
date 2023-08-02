@@ -72,6 +72,7 @@ async def permissionSubmission(data: UserPermission) :
     except SQLAlchemyError as e:
         print("terdapat error ==> ", e)
     finally:
+        conn.close()
         print("\n ==> 'permissionSubmission' berhasil >> Koneksi di tutup <== \n")
 
 
@@ -122,4 +123,5 @@ async def showAllPermissionDatas(options : str) :
     except SQLAlchemyError as e:
         print("terdapat error ==> ", e)
     finally:
+        conn.close()
         print("\n ==> 'personalLeaveSubmission' berhasil >> Koneksi di tutup <== \n")
