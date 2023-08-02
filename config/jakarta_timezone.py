@@ -8,12 +8,12 @@ def jkt_current_datetime () :
     datetime_obj = datetime.datetime.strptime(formatted_time, '%Y-%m-%d %H:%M:%S')
     return datetime_obj
 
-def jkt_current_date ():
+def jkt_current_time ():
     jakarta_timezone = pytz.timezone('Asia/Jakarta')
     current_datetime = datetime.datetime.now(jakarta_timezone)
     return current_datetime.time().replace(microsecond=0)
 
-def jkt_current_time () :
+def jkt_current_date () :
     jakarta_timezone = pytz.timezone('Asia/Jakarta')
     current_datetime = datetime.datetime.now(jakarta_timezone)
     return current_datetime.date()

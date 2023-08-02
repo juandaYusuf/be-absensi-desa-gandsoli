@@ -25,7 +25,7 @@ async def getQrCodeData(data_option : str):
     timestamp_string = timestamp_string[:20]
     # ==================================================
     date_now_for_compare = timestamp.strftime("%Y-%m-%d")
-
+    # return date_now_for_compare
     try:
         conn = engine.connect()
         query_qrcode_in = qrcode_data_in.select().order_by(desc(qrcode_data_in.c.created_at))
