@@ -7,7 +7,7 @@ from models.tabel import attendance_rules, attendance, user_has_scanned_in, pers
 from schema.schemas import (AttendanceRules, AttendanceRulesActivation, )
 import pytz
 from config.email_sender_message import EmailSender
-from config.jakarta_timezone import jkt_current_datetime, jkt_current_date
+from config.jakarta_timezone import jkt_current_datetime, jkt_current_date, jkt_current_time
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.asyncio import AsyncIOExecutor
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -49,7 +49,8 @@ async def automatedInsertquery():
         day_name_of_ind = ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu', 'minggu']
         conn = engine.connect()
         # cek tanggal sekarang kemudian anggap user yang tidak melakukan scann_in sebagai user yang tidak hadir (ALFA)
-        current_date = jkt_current_date()
+        current_date = jkt_current_time()
+        # return current_date
         #? ================================ ALGORITHM =======================================
         # Dapatkan data user yang sudah melakukan scan hari ini
         # Dapatkan seluruh user
@@ -68,7 +69,7 @@ async def automatedInsertquery():
         result_day_name_of_ind = day_name_of_ind[index_of_today]
         
         get_data_from_attendance = conn.execute(attendance.select()).fetchall()
-        get_user_scanned_in = conn.execute(user_has_scanned_in.select().where(user_has_scanned_in.c.created_at > current_date)).fetchall()
+        get_user_scanned_in = conn.execute(user_has_scanned_in.select().where(user_has_scanned_in.c.created_at > jkt_current_time())).fetchall()
         
         
         
