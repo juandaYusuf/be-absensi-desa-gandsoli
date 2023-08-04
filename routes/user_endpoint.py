@@ -58,7 +58,7 @@ async def login(data: LoginData):
                     if validate_user_device is not None :
                         new_value = check_login_counter.login_counter + 1
                         insert_counter = conn.execute(user_data.update().values(login_counter = new_value).where(user_data.c.id == response.id))
-                        if insert_counter.rowcosecretsunt > 0 :
+                        if insert_counter.rowcount > 0 :
                             return {
                                 "id" : response.id, 
                                 "role": get_role.role,
