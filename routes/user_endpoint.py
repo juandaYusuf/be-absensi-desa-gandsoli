@@ -1,7 +1,7 @@
 from sqlalchemy.exc import SQLAlchemyError
 from config.db import engine
 from fastapi import APIRouter, HTTPException, UploadFile, File, Request
-from models.tabel import user_data, attendance, presence, user_role, user_device_auth, account_verification
+from models.tabel import user_data, attendance, presence, user_role, user_device_auth, account_verification, detail_user_scanned
 from schema.schemas import (LoginData, RegisterData, EditDataProfile, changePassword, UpdateRole, Verifications)
 import secrets
 from config.email_sender_message import ConfirmEmailSender
@@ -342,6 +342,7 @@ async def deletUserData(id: int):
                 
         # ?delete presence data
         if get_presence_data :
+            conn.execute(detail_user_scanned.delete().where(detail_user_scanned.c.user_id == id))
             conn.execute(account_verification.delete().where(account_verification.c.user_id == id))
             conn.execute(user_device_auth.delete().where(user_device_auth.c.user_id == id))
             # if delete_user_device_auth.rowcount > 0 :
@@ -358,6 +359,7 @@ async def deletUserData(id: int):
                             drive.delete(get_profile_picture_name)
                         return {"message":"user data has been deleted"}
         else:
+            conn.execute(detail_user_scanned.delete().where(detail_user_scanned.c.user_id == id))
             # ?delete user device atuh
             conn.execute(account_verification.delete().where(account_verification.c.user_id == id))
             conn.execute(user_device_auth.delete().where(user_device_auth.c.user_id == id))
