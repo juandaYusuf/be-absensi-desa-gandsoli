@@ -342,6 +342,7 @@ async def deletUserData(id: int):
                 
         # ?delete presence data
         if get_presence_data :
+            conn.execute(account_verification.delete().where(account_verification.c.user_id == id))
             conn.execute(user_device_auth.delete().where(user_device_auth.c.user_id == id))
             # if delete_user_device_auth.rowcount > 0 :
             if get_presence_data :
@@ -358,6 +359,7 @@ async def deletUserData(id: int):
                         return {"message":"user data has been deleted"}
         else:
             # ?delete user device atuh
+            conn.execute(account_verification.delete().where(account_verification.c.user_id == id))
             conn.execute(user_device_auth.delete().where(user_device_auth.c.user_id == id))
             # if delete_user_device_auth.rowcount > 0 :
             # ?Delete Attendance_data
