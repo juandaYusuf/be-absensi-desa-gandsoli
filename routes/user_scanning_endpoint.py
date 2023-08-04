@@ -83,7 +83,7 @@ async def insertDetailUserScanned(scanned_options, user_id, scan_in_id, scan_out
 
 #! ==========================================================
 
-# !ENDPOINT CLEAR OLD DATA (Membersihkan data terdahulu atau data yang bukan hari ini 'clear data < today') - endpoint ini di hit ketika halaman qr-generator pada frontend di render-
+# !ENDPOINT CLEAR OLD DATA (Membersihkan data terdahulu atau data yang bukan hari ini 'clear data < today') - endpoint ini di hit ketika halaman qr-generator saat frontend di render-
 @router_user_scanning.delete('/api/scanning/clearing-old-datas' , tags=['USER SCANNING'])
 async def clearingOldDats():
     try :

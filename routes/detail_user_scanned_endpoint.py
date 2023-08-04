@@ -86,13 +86,7 @@ async def detailScannedOut():
                 ).join(
                     presence, detail_user_scanned.c.presence_id == presence.c.id
                     )
-        result_join_query = select([
-            user_data.c.first_name,
-            user_data.c.last_name,
-            user_data.c.profile_picture,
-            user_has_scanned_out.c.created_at,
-            presence.c.descriptions
-            ]).select_from(join_query)
+        result_join_query = select(user_data, user_has_scanned_out, presence).select_from(join_query)
         execute_join_query = conn.execute(result_join_query).fetchall()
         
         
@@ -103,6 +97,7 @@ async def detailScannedOut():
                 "last_name": datas_from_join.last_name,
                 "profile_picture": await profilePictures(datas_from_join.profile_picture),
                 "created_at": datas_from_join.created_at,
+                "total": datas_from_join.total_hours_worked,
                 "descriptions": datas_from_join.descriptions
                 })
         
