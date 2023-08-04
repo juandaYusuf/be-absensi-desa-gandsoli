@@ -1,16 +1,21 @@
 # Variable class untuk menampung data yang akang di eksekusi oleh query
 from pydantic import BaseModel
 from datetime import time, date
+from typing import Optional
 
 # !USER
 class LoginData(BaseModel):
     email: str
     encpass: str
     user_device: str
+    
+class Verifications(BaseModel):
+    user_id : int
+    code : int
 
 class RegisterData(BaseModel):
     first_name:str
-    last_name: str
+    last_name: Optional[str] = None
     alamat: str
     no_telepon: str
     email:str

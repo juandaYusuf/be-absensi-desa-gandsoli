@@ -1,13 +1,15 @@
 from sqlalchemy.exc import SQLAlchemyError
 from config.db import engine
 from fastapi import APIRouter, HTTPException, UploadFile, File, Request
-from models.tabel import user_data, attendance, presence, user_role, user_device_auth
-from schema.schemas import (LoginData, RegisterData, EditDataProfile, changePassword, UpdateRole)
+from models.tabel import user_data, attendance, presence, user_role, user_device_auth, account_verification
+from schema.schemas import (LoginData, RegisterData, EditDataProfile, changePassword, UpdateRole, Verifications)
 import secrets
+from config.email_sender_message import ConfirmEmailSender
 import base64
-from deta import Deta
 from config.picture_drive import drive
 import random
+
+
 
 
 router_user = APIRouter()
@@ -31,40 +33,50 @@ async def login(data: LoginData):
         conn = engine.connect()
         new_value = 0
         response = conn.execute(user_data.select().where(user_data.c.email == data.email)).first()
-
-        if response :
-            get_role = conn.execute(user_role.select().where(user_role.c.id == response.role_id)).first()
-            check_login_counter = conn.execute(user_data.select().where(user_data.c.id == response.id)).first()
-            if check_login_counter.login_counter == None or check_login_counter.login_counter == 0:
-                # Ini kondisi ketika user baru di registrasikan atau belum pernah login
-                first_login = conn.execute(user_data.update().values(login_counter = 1).where(user_data.c.id == response.id)) # jika user login pertama kali maka hitung atau inisialisasi dengan angka 1
-                if first_login.rowcount > 0 :
-                    # ini kondisi jika proses query 'first_login' berhasil
-                    # karena user barusaja login maka insert fpBrowser  -> 'user_device_auth'
-                    insert_fpBrowser = conn.execute(user_device_auth.insert().values(user_id = response.id, user_device = data.user_device))
-                    if insert_fpBrowser.rowcount > 0:
-                        return {
-                            "id" : response.id, 
-                            "role": get_role.role,
-                            "encpass": response.password,
-                            "log": "first login"
-                            }
-            else :
-                validate_user_device = conn.execute(user_device_auth.select().where(user_device_auth.c.user_id == response.id, user_device_auth.c.user_device == data.user_device)).first()
-                if validate_user_device is not None :
-                    new_value = check_login_counter.login_counter + 1
-                    insert_counter = conn.execute(user_data.update().values(login_counter = new_value).where(user_data.c.id == response.id))
-                    if insert_counter.rowcount > 0 :
-                        return {
-                            "id" : response.id, 
-                            "role": get_role.role,
-                            "encpass": response.password,
-                            "log": f"{new_value} times login"
-                            }
+        is_user_verified = conn.execute(account_verification.select().where(account_verification.c.user_id == response.id)).first()
+        
+        if is_user_verified.is_verified == True :
+            if response :
+                get_role = conn.execute(user_role.select().where(user_role.c.id == response.role_id)).first()
+                check_login_counter = conn.execute(user_data.select().where(user_data.c.id == response.id)).first()
+                if check_login_counter.login_counter == None or check_login_counter.login_counter == 0:
+                    # Ini kondisi ketika user baru di registrasikan atau belum pernah login
+                    first_login = conn.execute(user_data.update().values(login_counter = 1).where(user_data.c.id == response.id)) # jika user login pertama kali maka hitung atau inisialisasi dengan angka 1
+                    if first_login.rowcount > 0 :
+                        # ini kondisi jika proses query 'first_login' berhasil
+                        # karena user barusaja login maka insert fpBrowser  -> 'user_device_auth'
+                        insert_fpBrowser = conn.execute(user_device_auth.insert().values(user_id = response.id, user_device = data.user_device))
+                        if insert_fpBrowser.rowcount > 0:
+                            return {
+                                "id" : response.id, 
+                                "role": get_role.role,
+                                "encpass": response.password,
+                                "log": "first login"
+                                }
                 else :
-                    return {"message" : "device not vaidated"}
-        elif not response :
-            raise HTTPException(status_code=404, detail="User Tidak Dapat ditemukan, Harap periksa kembali Email dan Password")
+                    validate_user_device = conn.execute(user_device_auth.select().where(user_device_auth.c.user_id == response.id, user_device_auth.c.user_device == data.user_device)).first()
+                    if validate_user_device is not None :
+                        new_value = check_login_counter.login_counter + 1
+                        insert_counter = conn.execute(user_data.update().values(login_counter = new_value).where(user_data.c.id == response.id))
+                        if insert_counter.rowcosecretsunt > 0 :
+                            return {
+                                "id" : response.id, 
+                                "role": get_role.role,
+                                "encpass": response.password,
+                                "log": f"{new_value} times login"
+                                }
+                    else :
+                        return {"message" : "device not vaidated"}
+            elif not response :
+                raise HTTPException(status_code=404, detail="User Tidak Dapat ditemukan, Harap periksa kembali Email dan Password")
+        else :
+            get_role = conn.execute(user_role.select().where(user_role.c.id == response.role_id)).first()
+            return {
+                "id" : response.id, 
+                "role": get_role.role,
+                "encpass": response.password,
+                "log": "unverified"
+                }
     except SQLAlchemyError as e:
         print("terdapat error ==> ", e)
     finally:
@@ -77,7 +89,9 @@ async def login(data: LoginData):
 async def register(data: RegisterData):
     try:
         conn = engine.connect()
-        # random_number = random.randint(100000, 999999)
+        verify_code = random.randint(000000, 999999)
+        
+        
         is_email_duplicate = conn.execute(user_data.select().where(user_data.c.email == data.email)).fetchall()
         get_role = conn.execute(user_role.select().where(user_role.c.role == data.role)).first()
         if is_email_duplicate :
@@ -90,11 +104,15 @@ async def register(data: RegisterData):
                 conn.execute(attendance.insert().values(user_id = response.id))
                 attendance_table_response = conn.execute(attendance.select().where(attendance.c.user_id == response.id)).first()
                 if attendance_table_response :
+                    # Insert verified code 
+                    conn.execute(account_verification.insert().values(user_id = response.id, code = verify_code))
+                    ConfirmEmailSender(reciver_email=data.email, reciver_name= f'{data.first_name} {data.last_name}', verify_code=verify_code).sender()
                     return {
                         "message" : "register success",
                         "name": fullname,
                         "role": get_role.role
                         }
+                    
             elif not response :
                 raise HTTPException(status_code=404, detail="gagal menyimpan data")
     except SQLAlchemyError as e:
@@ -321,9 +339,11 @@ async def deletUserData(id: int):
         get_attendance_data = conn.execute(attendance.select().where(attendance.c.user_id == id)).first()
         get_presence_data = conn.execute(presence.select().where(presence.c.attendance_id == get_attendance_data.id)).first()
         get_profile_picture_name = conn.execute(user_data.select().where(user_data.c.id == id)).first().profile_picture
-
+                
         # ?delete presence data
         if get_presence_data :
+            conn.execute(user_device_auth.delete().where(user_device_auth.c.user_id == id))
+            # if delete_user_device_auth.rowcount > 0 :
             if get_presence_data :
                 delete_presence_data = conn.execute(presence.delete().where(presence.c.attendance_id == get_presence_data.attendance_id))
             # ?Delete Attendance_data
@@ -337,6 +357,9 @@ async def deletUserData(id: int):
                             drive.delete(get_profile_picture_name)
                         return {"message":"user data has been deleted"}
         else:
+            # ?delete user device atuh
+            conn.execute(user_device_auth.delete().where(user_device_auth.c.user_id == id))
+            # if delete_user_device_auth.rowcount > 0 :
             # ?Delete Attendance_data
             delete_attendance_data = conn.execute(attendance.delete().where(attendance.c.id == get_attendance_data.id))
             # ?Delete user data and delete profile picture
@@ -378,6 +401,24 @@ async def userRoles():
     finally:
         conn.close()
         print("\n ==> 'userRoles' berhasil >> Koneksi di tutup <== \n")
+
+
+@router_user.post('/api/verifications/single/user-verification-code/' , tags=['USERS'])
+async def verifivations(data: Verifications):
+    try:
+        conn = engine.connect()
+        get_verify_code = conn.execute(account_verification.select().where(account_verification.c.user_id == data.user_id, account_verification.c.code == data.code)).first()
+        if get_verify_code :
+            set_as_verified = conn.execute(account_verification.update().values(is_verified = True).where(account_verification.c.user_id == data.user_id))
+            if set_as_verified.rowcount > 0 :
+                return {"message" : "verified"}
+        else :
+            return {"message" : "invalid"}
+    except SQLAlchemyError as e:
+        print("terdapat error ==> ", e)
+    finally:
+        conn.close()
+        print("\n ==> 'verifivations' berhasil >> Koneksi di tutup <== \n")
 
 
 @router_user.get('/api/user/ip', tags=['IP'])

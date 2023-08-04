@@ -162,6 +162,14 @@ user_device_auth = Table(
     Column('user_device', String(1024), nullable=True)
 )
 
+account_verification = Table(
+    'account_verification',
+    metaData,
+    Column('id', Integer, primary_key=True, nullable=False),
+    Column("user_id", Integer, ForeignKey("user_data.id"), nullable=False),
+    Column("code", Integer, nullable=False),
+    Column('is_verified', Boolean, nullable=False, default=False)
+)
 
 # mass_leave = Table(
 #     'mass_leave', 

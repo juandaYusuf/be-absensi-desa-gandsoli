@@ -10,4 +10,6 @@ APScheduler==3.10.1
 schedule==1.2.0
 requests==2.31.0
 cryptography==41.0.2
+# bcrypt==4.0.1
+# pycryptodome==3.18.0
 # Pillow==9.4.0

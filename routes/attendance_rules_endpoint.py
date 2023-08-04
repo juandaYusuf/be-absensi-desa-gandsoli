@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from models.tabel import attendance_rules, attendance, user_has_scanned_in, personal_leave ,permission ,presence, user_data
 from schema.schemas import (AttendanceRules, AttendanceRulesActivation, )
 import pytz
-from config.email_sender_message import EmailSender
+from config.email_sender_message import EmailSender, ConfirmEmailSender
 from config.jakarta_timezone import jkt_current_datetime, jkt_current_date, jkt_current_time
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.asyncio import AsyncIOExecutor
@@ -43,7 +43,7 @@ def data_for_email_message (attendance_id, created_at_in):
     
     
     
-@router_attendance_rules.get("/api/automation/automate-insert-query", tags=["AUTOMATIONS ENDPOINT"])
+@router_attendance_rules.get("/api/automation/automate-insert-query", tags=["CRON JOB API"])
 async def automatedInsertquery():
     try :
         day_name_of_ind = ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu', 'minggu']
@@ -69,7 +69,7 @@ async def automatedInsertquery():
         result_day_name_of_ind = day_name_of_ind[index_of_today]
         
         get_data_from_attendance = conn.execute(attendance.select()).fetchall()
-        get_user_scanned_in = conn.execute(user_has_scanned_in.select().where(user_has_scanned_in.c.created_at > jkt_current_time())).fetchall()
+        get_user_scanned_in = conn.execute(user_has_scanned_in.select().where(user_has_scanned_in.c.created_at > jkt_current_datetime())).fetchall()
         
         
         
