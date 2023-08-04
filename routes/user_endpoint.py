@@ -1,7 +1,8 @@
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 from config.db import engine
 from fastapi import APIRouter, HTTPException, UploadFile, File, Request
-from models.tabel import user_data, attendance, presence, user_role, user_device_auth, account_verification, detail_user_scanned, user_has_scanned_in, user_has_scanned_out
+from models.tabel import user_data, attendance, presence, user_role, user_device_auth, account_verification, detail_user_scanned, user_has_scanned_in, user_has_scanned_out, personal_leave, permission
 from schema.schemas import (LoginData, RegisterData, EditDataProfile, changePassword, UpdateRole, Verifications)
 import secrets
 from config.email_sender_message import ConfirmEmailSender
@@ -335,11 +336,13 @@ async def listOfUser():
 async def deletUserData(id: int):
     try:
         conn = engine.connect()
-
+        
+        
         get_attendance_data = conn.execute(attendance.select().where(attendance.c.user_id == id)).first()
         get_presence_data = conn.execute(presence.select().where(presence.c.attendance_id == get_attendance_data.id)).first()
         get_profile_picture_name = conn.execute(user_data.select().where(user_data.c.id == id)).first().profile_picture
-                
+        
+        
         # ?delete presence data
         if get_presence_data :
             conn.execute(detail_user_scanned.delete().where(detail_user_scanned.c.user_id == id))
@@ -347,37 +350,44 @@ async def deletUserData(id: int):
             conn.execute(user_has_scanned_out.delete().where(user_has_scanned_out.c.user_id == id))
             conn.execute(account_verification.delete().where(account_verification.c.user_id == id))
             conn.execute(user_device_auth.delete().where(user_device_auth.c.user_id == id))
+            conn.execute(personal_leave.delete().where(personal_leave.c.user_id == id))
+            conn.execute(permission.delete().where(permission.c.user_id == id))
+            conn.execute(presence.delete().where(presence.c.attendance_id == get_presence_data.attendance_id))
+            conn.execute(attendance.delete().where(attendance.c.id == get_attendance_data.id))
+            conn.execute(user_data.delete().where(user_data.c.id == id))
+            if get_profile_picture_name:
+                drive.delete(get_profile_picture_name)
+            return {"message":"user data has been deleted"}
             # if delete_user_device_auth.rowcount > 0 :
-            if get_presence_data :
-                delete_presence_data = conn.execute(presence.delete().where(presence.c.attendance_id == get_presence_data.attendance_id))
-            # ?Delete Attendance_data
-            if delete_presence_data.rowcount > 0 :
-                delete_attendance_data = conn.execute(attendance.delete().where(attendance.c.id == get_attendance_data.id))
-                # ?Delete user data and delete profile picture
-                if delete_attendance_data.rowcount > 0 :
-                    delete_user_data = conn.execute(user_data.delete().where(user_data.c.id == id))
-                    if delete_user_data.rowcount > 0 :
-                        if get_profile_picture_name:
-                            drive.delete(get_profile_picture_name)
-                        return {"message":"user data has been deleted"}
-        else:
+            # if get_presence_data :
+            #     delete_presence_data = conn.execute(presence.delete().where(presence.c.attendance_id == get_presence_data.attendance_id))
+            # # ?Delete Attendance_data
+            # if delete_presence_data.rowcount > 0 :
+            #     delete_attendance_data = conn.execute(attendance.delete().where(attendance.c.id == get_attendance_data.id))
+            #     # ?Delete user data and delete profile picture
+            #     if delete_attendance_data.rowcount > 0 :
+            #         delete_user_data = conn.execute(user_data.delete().where(user_data.c.id == id))
+            #         if delete_user_data.rowcount > 0 :
+            #             if get_profile_picture_name:
+            #                 drive.delete(get_profile_picture_name)
+        # ?delete jika presence data kosong
+        else :
             conn.execute(detail_user_scanned.delete().where(detail_user_scanned.c.user_id == id))
             conn.execute(user_has_scanned_in.delete().where(user_has_scanned_in.c.user_id == id))
             conn.execute(user_has_scanned_out.delete().where(user_has_scanned_out.c.user_id == id))
-            # ?delete user device atuh
             conn.execute(account_verification.delete().where(account_verification.c.user_id == id))
+            conn.execute(personal_leave.delete().where(personal_leave.c.user_id == id))
+            conn.execute(permission.delete().where(permission.c.user_id == id))
             conn.execute(user_device_auth.delete().where(user_device_auth.c.user_id == id))
+            conn.execute(attendance.delete().where(attendance.c.id == get_attendance_data.id))
+            conn.execute(user_data.delete().where(user_data.c.id == id))
+            if get_profile_picture_name:
+                drive.delete(get_profile_picture_name)
+            return {"message":"user data has been deleted"}
             # if delete_user_device_auth.rowcount > 0 :
-            # ?Delete Attendance_data
-            delete_attendance_data = conn.execute(attendance.delete().where(attendance.c.id == get_attendance_data.id))
-            # ?Delete user data and delete profile picture
-            if delete_attendance_data.rowcount > 0 :
-                delete_user_data = conn.execute(user_data.delete().where(user_data.c.id == id))
-                if delete_user_data.rowcount > 0 :
-                    if get_profile_picture_name:
-                        drive.delete(get_profile_picture_name)
-                    return {"message":"user data has been deleted"}
-
+            # if delete_attendance_data.rowcount > 0 :
+            #     delete_user_data = conn.execute(user_data.delete().where(user_data.c.id == id))
+            #     if delete_user_data.rowcount > 0 :
     except SQLAlchemyError as e:
         print("terdapat error ==> ", e)
     finally:
