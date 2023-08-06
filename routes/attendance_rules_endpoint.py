@@ -85,8 +85,15 @@ async def automatedInsertquery():
         
         #* Cek apakah hari minggu/sabtu. Maka jangan ngapangapain
         
+        # if result_day_name_of_ind == 'sabtu' or result_day_name_of_ind == 'minggu':
+        #     print("weekEnd")
+        # else :
+        #     print("weekDay")
+        # return result_day_name_of_ind
         
-        if result_day_name_of_ind != 'sabtu' or result_day_name_of_ind != 'minggu':
+        if result_day_name_of_ind == 'sabtu' or result_day_name_of_ind == 'minggu':
+            return {"message" : "weekend"}
+        else :
             
             #* ===========================================================================
             # Loop seluruh isi data dari tabel user_data (var 'get_data_from_attendance') 
@@ -226,9 +233,6 @@ async def automatedInsertquery():
                     if email_data is not None :
                         EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="tanpa keterangan", date=jkt_current_datetime()).sender()
             return {"message" : "setup done"}
-        else :
-            return {"message" : "weekend"}
-        
     except SQLAlchemyError as e :
         print("terdapat error --> ", e)
     finally :

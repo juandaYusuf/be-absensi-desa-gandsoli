@@ -34,10 +34,10 @@ async def login(data: LoginData):
         conn = engine.connect()
         new_value = 0
         response = conn.execute(user_data.select().where(user_data.c.email == data.email)).first()
-        is_user_verified = conn.execute(account_verification.select().where(account_verification.c.user_id == response.id)).first()
         
-        if is_user_verified.is_verified == True :
-            if response :
+        if response :
+            is_user_verified = conn.execute(account_verification.select().where(account_verification.c.user_id == response.id)).first()
+            if is_user_verified.is_verified == True :
                 get_role = conn.execute(user_role.select().where(user_role.c.id == response.role_id)).first()
                 check_login_counter = conn.execute(user_data.select().where(user_data.c.id == response.id)).first()
                 if check_login_counter.login_counter == None or check_login_counter.login_counter == 0:
@@ -68,16 +68,16 @@ async def login(data: LoginData):
                                 }
                     else :
                         return {"message" : "device not vaidated"}
-            elif not response :
-                raise HTTPException(status_code=404, detail="User Tidak Dapat ditemukan, Harap periksa kembali Email dan Password")
-        else :
-            get_role = conn.execute(user_role.select().where(user_role.c.id == response.role_id)).first()
-            return {
-                "id" : response.id, 
-                "role": get_role.role,
-                "encpass": response.password,
-                "log": "unverified"
-                }
+            else :
+                get_role = conn.execute(user_role.select().where(user_role.c.id == response.role_id)).first()
+                return {
+                    "id" : response.id, 
+                    "role": get_role.role,
+                    "encpass": response.password,
+                    "log": "unverified"
+                    }
+        elif not response :
+            raise HTTPException(status_code=404, detail="User Tidak Dapat ditemukan, Harap periksa kembali Email dan Password")
     except SQLAlchemyError as e:
         print("terdapat error ==> ", e)
     finally:
