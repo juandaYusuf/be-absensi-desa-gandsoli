@@ -49,7 +49,10 @@ async def automatedInsertquery():
         day_name_of_ind = ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu', 'minggu']
         conn = engine.connect()
         # cek tanggal sekarang kemudian anggap user yang tidak melakukan scann_in sebagai user yang tidak hadir (ALFA)
-        current_date = jkt_current_time()
+        current_date = jkt_current_date()
+        current_time = jkt_current_time()
+        current_date_time = jkt_current_datetime()
+        
         # return current_date
         #? ================================ ALGORITHM =======================================
         # Dapatkan data user yang sudah melakukan scan hari ini
