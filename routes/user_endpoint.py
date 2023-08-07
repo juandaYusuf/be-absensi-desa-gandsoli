@@ -2,7 +2,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from config.db import engine
 from fastapi import APIRouter, HTTPException, UploadFile, File, Request
-from models.tabel import user_data, attendance, presence, user_role, user_device_auth, account_verification, detail_user_scanned, user_has_scanned_in, user_has_scanned_out, personal_leave, permission
+from models.tabel import user_data, attendance, presence, user_role, user_device_auth, account_verification, detail_user_scanned, user_has_scanned_in, user_has_scanned_out, personal_leave, permission, sick
 from schema.schemas import (LoginData, RegisterData, EditDataProfile, changePassword, UpdateRole, Verifications)
 import secrets
 from config.email_sender_message import ConfirmEmailSender
@@ -353,6 +353,7 @@ async def deletUserData(id: int):
             conn.execute(personal_leave.delete().where(personal_leave.c.user_id == id))
             conn.execute(permission.delete().where(permission.c.user_id == id))
             conn.execute(presence.delete().where(presence.c.attendance_id == get_presence_data.attendance_id))
+            conn.execute(sick.delete().where(sick.c.user_id == id))
             conn.execute(attendance.delete().where(attendance.c.id == get_attendance_data.id))
             conn.execute(user_data.delete().where(user_data.c.id == id))
             if get_profile_picture_name:

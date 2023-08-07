@@ -1,5 +1,5 @@
 # Membuat tabel database
-from sqlalchemy import DateTime, Date, ForeignKey, Integer, String, Table, Column, Time, Boolean, func, event
+from sqlalchemy import DateTime, Date, ForeignKey, inspect, Integer, String, Table, Column, Time, Boolean, func, event
 from config.db import engine, metaData
 
 user_data = Table(
@@ -183,14 +183,11 @@ sick = Table(
 )
 
 
-# mass_leave = Table(
-#     'mass_leave', 
-#     metaData,
-#     Column('id', Integer, primary_key=True, nullable=False),
-#     Column("user_id", Integer, ForeignKey("user_data.id"), nullable=False),
-#     Column('from_date', Date),
-#     Column('to_date', Date),
-#     Column('descriptions', String(200), nullable=True)
-# )
+# !==================Query alterTabel==============================
+#? ALTER TABLE [nama_tabel] ADD COLUMN [nama_kolom] INTEGER
+
+#? ALTER TABLE [nama_tabel] ADD FOREIGN KEY ([nama_kolom]) REFERENCES [nama_tabel_parent]([id_nya])
+
+# !================================================================
 
 metaData.create_all(engine)

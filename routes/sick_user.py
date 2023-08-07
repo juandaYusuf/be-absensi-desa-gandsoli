@@ -41,7 +41,7 @@ async def profilePictures(pp_name):
 async def sickUser(data:userSick):
     try :
         conn = engine.connect()
-        curr_date_time = jkt_current_date()
+        curr_date = jkt_current_date()
         get_user_sick_data = conn.execute(sick.select().where(sick.c.user_id == data.user_id)).first()
         join_query = attendance.join(user_data, attendance.c.user_id == user_data.c.id)
         resp_join = select([user_data.c.first_name, user_data.c.last_name, user_data.c.email]).select_from(join_query).where(user_data.c.id == data.user_id)
@@ -52,14 +52,14 @@ async def sickUser(data:userSick):
         
         
         if data.options == "sakit":
-            insert_sick_user = conn.execute(sick.insert().values(user_id = data.user_id, descriptions = data.descriptions, created_at = curr_date_time))
+            insert_sick_user = conn.execute(sick.insert().values(user_id = data.user_id, descriptions = data.descriptions, created_at = curr_date))
             if insert_sick_user.rowcount > 0 :
                 get_user_sick_data = conn.execute(sick.select().where(sick.c.user_id == data.user_id)).first()
                 get_curr_presence = conn.execute(presence.select().where(presence.c.attendance_id == get_attendance_data.id)).first()
                 update_presence = conn.execute(presence.update().values(presence_status = 'sakit', sick = get_user_sick_data.id, descriptions = get_user_sick_data.descriptions).where(presence.c.attendance_id == get_attendance_data.id))
                 if update_presence.rowcount > 0 :
                     presence_dates = get_curr_presence.created_at_in
-                    EmailSender(reciver_email=exec_join.email, reciver_name=f"{exec_join.first_name} {exec_join.last_name}", reciver_presence_status="Sakit diperbaharui", description="sakit", date=jkt_current_date).sender()
+                    EmailSender(reciver_email=exec_join.email, reciver_name=f"{exec_join.first_name} {exec_join.last_name}", reciver_presence_status="Sakit diperbaharui", description="sakit", date=curr_date).sender()
                     return {
                             "message": "success",
                             "name": f"{exec_join.first_name} {exec_join.last_name}",
