@@ -28,6 +28,7 @@ attendance = Table(
     # Column('presenting', String(5), DefaultClause(allowed_values[0]), CheckConstraint("presenting IN %s" % str(tuple(allowed_values))), nullable=False),
 )
 
+
 presence = Table(
     'presence',
     metaData,
@@ -39,6 +40,7 @@ presence = Table(
     Column('created_at_out', DateTime, nullable=True),
     Column("personal_leave_id", Integer, ForeignKey("personal_leave.id"), nullable=True),
     Column("permission", Integer, ForeignKey("permission.id"), nullable=True),
+    Column("sick", Integer, ForeignKey("sick.id"), nullable=True),
     Column('total_hours_worked', String(30), nullable=True),
     Column('working',Boolean, nullable=False, default=False),
     Column('descriptions', String(200), nullable=True)
@@ -170,6 +172,16 @@ account_verification = Table(
     Column("code", Integer, nullable=False),
     Column('is_verified', Boolean, nullable=False, default=False)
 )
+
+sick = Table(
+    'sick',
+    metaData,
+    Column('id', Integer, primary_key=True, nullable=False),
+    Column("user_id", Integer, ForeignKey("user_data.id"), nullable=True),
+    Column('descriptions', String(500), nullable=False),
+    Column('created_at', Date, nullable=True)
+)
+
 
 # mass_leave = Table(
 #     'mass_leave', 

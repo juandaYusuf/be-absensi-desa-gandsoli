@@ -3,7 +3,7 @@ from sqlalchemy.sql import select
 from config.db import engine
 from fastapi import APIRouter
 from models.tabel import user_data, attendance, presence, user_has_scanned_in,personal_leave, permission
-from schema.schemas import AttendanceInputData
+from schema.schemas import AttendanceInputData, userSick
 import smtplib
 from email.message import EmailMessage
 import datetime
@@ -922,6 +922,7 @@ async def multiAttendanceDetailPresent(set_year: int, set_month: int):
         conn.close()
         print("\n --> 'multiAttendanceDetailPresent' berhasil >> Koneksi di tutup <-- \n")
     
+
 
 
 #! Anggap user yang tidak melakukan scan_in sebagai user yang tidak hadir (Endpoin ini di hit ketika waktu keluar kerja telah berakhir)

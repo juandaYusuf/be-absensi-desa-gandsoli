@@ -75,3 +75,9 @@ class UserPermission(BaseModel):
     user_id: int
     reason: str
     created_at: date
+    
+    
+class userSick(BaseModel):
+    user_id : int
+    descriptions: str
+    options: str
