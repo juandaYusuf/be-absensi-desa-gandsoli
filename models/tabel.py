@@ -185,8 +185,13 @@ sick = Table(
 
 # !==================Query alterTabel==============================
 #? ALTER TABLE [nama_tabel] ADD COLUMN [nama_kolom] INTEGER
+# ex: ALTER TABLE presence ADD COLUMN sick INTEGER;
+
 
 #? ALTER TABLE [nama_tabel] ADD FOREIGN KEY ([nama_kolom]) REFERENCES [nama_tabel_parent]([id_nya])
+# ex : ALTER TABLE presence ADD FOREIGN KEY (sick) REFERENCES sick(id);
+
+
 
 # !================================================================
 
