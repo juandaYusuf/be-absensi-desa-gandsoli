@@ -56,7 +56,7 @@ async def sickUser(data:userSick):
             if insert_sick_user.rowcount > 0 :
                 get_user_sick_data = conn.execute(sick.select().where(sick.c.user_id == data.user_id)).first()
                 get_curr_presence = conn.execute(presence.select().where(presence.c.attendance_id == get_attendance_data.id)).first()
-                update_presence = conn.execute(presence.update().values(presence_status = 'sakit', sick = get_user_sick_data.id, descriptions = get_user_sick_data.descriptions).where(presence.c.attendance_id == get_attendance_data.id))
+                update_presence = conn.execute(presence.update().values(presence_status = 'sakit', sick = get_user_sick_data.id, descriptions = get_user_sick_data.descriptions).where(presence.c.attendance_id == get_attendance_data.id, presence.c.created_at_in == data.created_at_in))
                 if update_presence.rowcount > 0 :
                     presence_dates = get_curr_presence.created_at_in
                     EmailSender(reciver_email=exec_join.email, reciver_name=f"{exec_join.first_name} {exec_join.last_name}", reciver_presence_status="Sakit diperbaharui", description="sakit", date=curr_date).sender()

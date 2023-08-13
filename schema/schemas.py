@@ -80,4 +80,5 @@ class UserPermission(BaseModel):
 class userSick(BaseModel):
     user_id : int
     descriptions: str
+    created_at_in : str
     options: str
