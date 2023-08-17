@@ -1,10 +1,11 @@
 
+from config.upload_image_to_detadrive import uploadImageToDeta
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import desc
 from config.db import engine
 from sqlalchemy.sql import select
 from schema.schemas import userSick 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from models.tabel import presence, sick, attendance, user_data
 from config.jakarta_timezone import jkt_current_date
 from config.picture_drive import drive
@@ -48,7 +49,6 @@ async def sickUser(data:userSick):
         exec_join = conn.execute(resp_join).first()
         get_attendance_data = conn.execute(attendance.select().where(attendance.c.user_id == data.user_id)).first()
         
-        # return get_attendance_data
         
         
         if data.options == "sakit":
@@ -57,6 +57,7 @@ async def sickUser(data:userSick):
                 get_user_sick_data = conn.execute(sick.select().where(sick.c.user_id == data.user_id)).first()
                 get_curr_presence = conn.execute(presence.select().where(presence.c.attendance_id == get_attendance_data.id)).first()
                 update_presence = conn.execute(presence.update().values(presence_status = 'sakit', sick = get_user_sick_data.id, descriptions = get_user_sick_data.descriptions).where(presence.c.attendance_id == get_attendance_data.id, presence.c.created_at_in == data.created_at_in))
+                
                 if update_presence.rowcount > 0 :
                     presence_dates = get_curr_presence.created_at_in
                     EmailSender(reciver_email=exec_join.email, reciver_name=f"{exec_join.first_name} {exec_join.last_name}", reciver_presence_status="Sakit diperbaharui", description="sakit", date=curr_date).sender()
@@ -68,7 +69,10 @@ async def sickUser(data:userSick):
                             "update_at" : get_user_sick_data.created_at
                             }
         elif data.options == 'alfa':
-            update_presence = conn.execute(presence.update().values(presence_status = data.options, sick = None, descriptions = 'tanpa keterangan').where(presence.c.attendance_id == get_attendance_data.id))
+            update_presence = conn.execute(presence.update().values(presence_status = data.options, sick = None, descriptions = 'tanpa keterangan').where(presence.c.attendance_id == get_attendance_data.id, presence.c.created_at_in == data.created_at_in))
+            # delete gambar surat sakit
+            file_name_for_delete = conn.execute(sick.select().where(sick.c.user_id == data.user_id)).first()
+            drive.delete(file_name_for_delete.sick_proof)
             delete_sick_user = conn.execute(sick.delete().where(sick.c.user_id == data.user_id))
             if delete_sick_user.rowcount > 0 :
                 get_user_sick_data = conn.execute(sick.select().where(sick.c.user_id == data.user_id)).first()
@@ -88,6 +92,21 @@ async def sickUser(data:userSick):
         print("\n --> 'sickUser' berhasil >> Koneksi di tutup <-- \n")
     
     
+@router_sick_user.post('/api/attendance/presence/sick-user/sick-proof/{user_id}', tags=['SICK USER'])
+async def sickUserSickProof(user_id:int, image: UploadFile = File(...)):
+    try :
+        conn = engine.connect()
+        upload_img = await uploadImageToDeta(image)
+        insert_sick_user = conn.execute(sick.update().values(sick_proof = upload_img).where(sick.c.user_id == user_id))
+        if insert_sick_user.rowcount > 0 :
+            return {"message" : "success"}
+    except SQLAlchemyError as e :
+        print("terdapat error di 'sickUser' --> ", e)
+    finally :
+        conn.close()
+        print("\n --> 'sickUser' berhasil >> Koneksi di tutup <-- \n")
+    
+
 
 @router_sick_user.get('/api/attendance/presence/multi/user/', tags=['SICK USER'])
 async def showAllUser():
@@ -98,18 +117,22 @@ async def showAllUser():
             attendance, user_data.c.id == attendance.c.user_id
             ).join(
                 presence, presence.c.attendance_id == attendance.c.id)
-        result_join = select([user_data.c.id, user_data.c.first_name, user_data.c.last_name, presence.c.id, presence.c.created_at_in, presence.c.presence_status, attendance.c.id, user_data.c.profile_picture,]).select_from(join_query)
+        result_join = select([user_data.c.id, user_data.c.first_name, user_data.c.last_name, presence.c.id, presence.c.created_at_in, presence.c.sick, presence.c.presence_status, attendance.c.id, user_data.c.profile_picture,]).select_from(join_query)
         exec_join = conn.execute(result_join).fetchall()
         
-        async def userInSickTable(user_id:int, options:str):
+        async def userInSickTable(presence_sick, options:str):
             try :
                 conn = engine.connect()
-                sick_data = conn.execute(sick.select().where(sick.c.user_id == user_id)).first()
-                if sick_data:
-                    created_at = sick_data['created_at']
-                    descriptions = sick_data['descriptions']
+                # sick_data = conn.execute(sick.select().where(sick.c.user_id == user_id)).first()
+                join_presence_to_sict = presence.join(sick, presence.c.sick == sick.c.id)
+                resp_join_presence_to_sict = select(sick.c.created_at, sick.c.descriptions, sick.c.id, presence.c.sick).select_from(join_presence_to_sict).where(sick.c.id == presence_sick)
+                exec_join_presence_to_sict = conn.execute(resp_join_presence_to_sict).first()
+                
+                if exec_join_presence_to_sict:
+                    created_at = exec_join_presence_to_sict['created_at']
+                    descriptions = exec_join_presence_to_sict['descriptions']
                     if options == "created_at":
-                        return created_at
+                        return created_at 
                     elif options  == "descriptions":
                         return descriptions
                         
@@ -143,8 +166,8 @@ async def showAllUser():
                 "created_at_in": modify_items['created_at_in'],
                 "attendance_id": modify_items['id_2'],
                 "profile_picture":modify_items['profile_picture'],
-                'updated_at' : await userInSickTable(modify_items['id'], "created_at"),
-                'descriptions' : await userInSickTable(modify_items['id'], "descriptions")
+                'updated_at' : await userInSickTable(modify_items['sick'], "created_at"),
+                'descriptions' : await userInSickTable(modify_items['sick'], "descriptions")
                 })
         return return_datas
     except SQLAlchemyError as e :

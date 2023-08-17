@@ -1,11 +1,13 @@
 from sqlalchemy.exc import SQLAlchemyError
+from PIL import Image
 from sqlalchemy.orm import Session
 from config.db import engine
 from fastapi import APIRouter, HTTPException, UploadFile, File, Request
 from models.tabel import user_data, attendance, presence, user_role, user_device_auth, account_verification, detail_user_scanned, user_has_scanned_in, user_has_scanned_out, personal_leave, permission, sick
-from schema.schemas import (LoginData, RegisterData, EditDataProfile, changePassword, UpdateRole, Verifications)
+from schema.schemas import (LoginData, RegisterData, EditDataProfile, changePassword, UpdateRole, Verifications, UpdateSignature)
 import secrets
 from config.email_sender_message import ConfirmEmailSender
+from config.upload_image_to_detadrive import uploadImageToDeta
 import base64
 from config.picture_drive import drive
 import random
@@ -14,6 +16,22 @@ import random
 
 
 router_user = APIRouter()
+
+#! ================== GET PROFILE PICTURE ==================
+# fungction untuk mendapatkan gambar
+async def profilePictures(img_name):
+    if str(img_name) != "None":
+        large_file = drive.get(img_name)
+        output = b""
+        for chunk in large_file.iter_chunks(4096):
+            output += chunk
+        large_file.close()
+        encoded_image = base64.b64encode(output)
+        return encoded_image.decode("utf-8")
+    else :
+        return None
+#! ==========================================================
+
 
 
 #! USER  ==============================================================================
@@ -176,27 +194,16 @@ async def uploadprofileimage(id:int, image: UploadFile =File(...)):
     try:
         conn = engine.connect()
         is_user_exist = conn.execute(user_data.select().where(user_data.c.id == id)).first()
+        upload_img = await uploadImageToDeta(image)
         if is_user_exist :
-            with image.file as f:
-                fileName = image.filename
-                extensions = fileName.split(".")[1]
-                if extensions not in ['png', 'jpg', 'jpeg']:
-                    return {
-                        "status": "error",
-                        "detail": "file extension is not allowed"
-                        }
-                token_name = secrets.token_hex(10)+"."+extensions
-                generated_name = token_name
-                push_the_file = drive.put(generated_name[1:], f)
-                conn.execute(user_data.update().values(profile_picture = push_the_file).where(user_data.c.id == id))
-                result = conn.execute(user_data.select().where(user_data.c.id == id, user_data.c.profile_picture == push_the_file)).first().profile_picture
-                if result :
-                    return {"message":"file succesfully uploaded"}
+            insert_filename = conn.execute(user_data.update().values(profile_picture = upload_img).where(user_data.c.id == id))
+            if insert_filename.rowcount > 0 :
+                return {"message":"file succesfully uploaded"}
         else :
             raise HTTPException(
                 status_code=404,
                 detail="Pengguna tidak terdafatar"
-            )
+                )
     except SQLAlchemyError as e:
         print("terdapat error ==> ", e)
     finally:
@@ -292,6 +299,8 @@ async def userDetail(id:int):
             "email": response.email,
             "j_kelamin": response.j_kelamin,
             "role": get_role.role,
+            "signature": response.signature,
+            "signature_data": await profilePictures(response.signature),
             "profile_picture": response.profile_picture
             }
     except SQLAlchemyError as e :
@@ -438,6 +447,65 @@ async def verifivations(data: Verifications):
     finally:
         conn.close()
         print("\n ==> 'verifivations' berhasil >> Koneksi di tutup <== \n")
+
+
+@router_user.put('/api/user/single/update-signature' , tags=['USERS'])
+async def updateUserSignature(data : UpdateSignature):
+    
+    def saveSignature () :
+        data_url = data.signature
+        image_data = data_url.split(",")[1]
+        image_bytes = base64.b64decode(image_data)
+        token_name = secrets.token_hex(10)+"."+"png"
+        generated_name = token_name
+        from io import BytesIO
+        image_stream = BytesIO(image_bytes)
+        push_the_file = drive.put(generated_name[1:], image_stream)
+        return push_the_file
+    
+    try:
+        conn = engine.connect()
+        # print(data.signature)
+        save_signature_to_cloud = saveSignature()
+        # Delete signature jika sudah ada
+        chek_signature_exist = conn.execute(user_data.select().where(user_data.c.id == data.id)).first()
+        if chek_signature_exist.signature is not None :
+            delete_signature = conn.execute(user_data.update().values(signature = None).where(user_data.c.id == data.id))
+            deleted_file = drive.delete(chek_signature_exist.signature)
+            if delete_signature.rowcount > 0 and deleted_file:
+                update_user_signature = conn.execute(user_data.update().values(signature = save_signature_to_cloud).where(user_data.c.id == data.id))
+                if update_user_signature.rowcount > 0 :
+                    return {"message": "user signature has been updated"}
+        else :
+            update_signature_if_not_exist = conn.execute(user_data.update().values(signature = save_signature_to_cloud).where(user_data.c.id == data.id))
+            if update_signature_if_not_exist.rowcount > 0 :
+                return {"message": "user signature has been added"}
+    except SQLAlchemyError as e:
+        print("terdapat error ==> ", e)
+    finally:
+        conn.close()
+        print("\n ==> 'updateUserSignature' berhasil >> Koneksi di tutup <== \n")
+
+
+
+# @router_user.put('/api/user/single/show-signature/{user_id}' , tags=['USERS'])
+# async def showUserSignature(user_id:int):
+#     try:
+#         conn = engine.connect()
+#         get_signature = conn.execute(user_data.select().where(user_data.c.id == user_id))
+#         if get_signature is not None :
+#             return {
+#                 "user_id" : "",
+#                 "signature" : ""
+#             }
+#     except SQLAlchemyError as e:
+#         print("terdapat error di showUserSignature ==> ", e)
+#     finally:
+#         conn.close()
+#         print("\n ==> 'showUserSignature' berhasil >> Koneksi di tutup <== \n")
+
+
+
 
 
 @router_user.get('/api/user/ip', tags=['IP'])

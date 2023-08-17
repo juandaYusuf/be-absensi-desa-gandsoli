@@ -15,7 +15,9 @@ user_data = Table(
     Column('j_kelamin', String(10), nullable=False),
     Column("role_id", Integer, ForeignKey("user_role.id"), nullable=False),
     Column("login_counter", Integer, default=0, nullable=True),
-    Column('profile_picture', String(255))
+    Column('profile_picture', String(255)),
+    Column('signature', String(500))
+    
 )
 
 
@@ -132,7 +134,11 @@ permission = Table(
     Column('id', Integer, primary_key=True, nullable=False),
     Column("user_id", Integer, ForeignKey("user_data.id"), nullable=False),
     Column('reason', String(200),nullable=True),
-    Column('created_at', Date, nullable=False)
+    Column('start_date', Date, nullable=False),
+    Column('end_date', Date, nullable=True),
+    Column('agreement', String(15), nullable=False, default=False),
+    Column('created_at', Date, nullable=False),
+    Column('docs', String(100), nullable=True)
 )
 
 
@@ -179,7 +185,8 @@ sick = Table(
     Column('id', Integer, primary_key=True, nullable=False),
     Column("user_id", Integer, ForeignKey("user_data.id"), nullable=True),
     Column('descriptions', String(500), nullable=False),
-    Column('created_at', Date, nullable=True)
+    Column('created_at', Date, nullable=True),
+    Column('sick_proof', String(100), nullable=False)
 )
 
 
