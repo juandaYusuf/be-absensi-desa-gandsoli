@@ -69,6 +69,7 @@ class PersonalLeave(BaseModel):
     user_id: int
     start_date : date
     end_date : date
+    apply_docs: str
     descriptions: str
     
 class UserPermission(BaseModel):
@@ -92,3 +93,9 @@ class UpdatePermissionAgreement(BaseModel):
     permission_id : int
     agreement: str
     docs: Optional[str] = Field(default=None)
+    
+class UpdatePersonalLeaveAgreement(BaseModel):
+    user_id: int
+    personal_leave_id : int
+    agreement: str
+    agreement_docs: Optional[str] = Field(default=None)

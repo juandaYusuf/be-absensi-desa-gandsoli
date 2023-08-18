@@ -136,7 +136,7 @@ permission = Table(
     Column('reason', String(200),nullable=True),
     Column('start_date', Date, nullable=False),
     Column('end_date', Date, nullable=True),
-    Column('agreement', String(15), nullable=False, default=False),
+    Column('agreement', String(15), nullable=False),
     Column('created_at', Date, nullable=False),
     Column('docs', String(100), nullable=True)
 )
@@ -150,7 +150,11 @@ personal_leave = Table(
     Column("user_id", Integer, ForeignKey("user_data.id"), nullable=True),
     Column('start_date', Date, nullable=True),
     Column('end_date', Date, nullable=True),
-    Column('descriptions', String(200), nullable=False)
+    Column('descriptions', String(200), nullable=False),
+    Column('agreement', String(15), nullable=False),
+    Column('apply_docs', String(100), nullable=True),
+    Column('agreement_docs', String(100), nullable=True),
+    Column('created_at', Date, nullable=False)
 )
 
 

@@ -224,11 +224,11 @@ async def getSingleUserPermissionLis (user_id : int) :
         print("\n ==> 'getSingleUserPermissionLis' berhasil >> Koneksi di tutup <== \n")
         
 
-@router_user_permission.get('/api/user-permission/single/doc/{user_id}' , tags=['USER PERMISSION'])
-async def getDocByOptions (user_id : int) :
+@router_user_permission.get('/api/user-permission/single/doc/{user_id}/{permission_id}' , tags=['USER PERMISSION'])
+async def getDocByOptions (user_id : int, permission_id : int) :
     try :
         conn = engine.connect()
-        get_data_permission_list = conn.execute(permission.select().where(permission.c.user_id == user_id)).first()
+        get_data_permission_list = conn.execute(permission.select().where(permission.c.user_id == user_id, permission.c.id == permission_id)).first()
         if get_data_permission_list :
             return {"docs" : await getPermissionDocs(get_data_permission_list.docs)}
         else :
