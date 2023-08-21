@@ -45,7 +45,8 @@ presence = Table(
     Column("sick", Integer, ForeignKey("sick.id"), nullable=True),
     Column('total_hours_worked', String(30), nullable=True),
     Column('working',Boolean, nullable=False, default=False),
-    Column('descriptions', String(200), nullable=True)
+    Column('descriptions', String(200), nullable=True),
+    Column('created_at', Date, server_default=func.now())
     # Column('created_at_out', DateTime)
 )
 
