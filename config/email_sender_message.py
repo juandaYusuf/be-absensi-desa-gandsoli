@@ -70,8 +70,8 @@ class ConfirmEmailSender():
             verfycode=self.verify_code
             )
         user_email_reciver = self.reciver_email
-        email_address_sender = "panjoelalfath@gmail.com" 
-        email_password_sender = "huqhxkztjwmsbvlx" 
+        email_address_sender = "desa.gandasoli.pld@gmail.com" 
+        email_password_sender = "qhvesdqutvsqstxp" 
         
         msg = EmailMessage()
         msg['Subject'] = f"PEMBERITAHUAN VERIFIKASI KODE"
