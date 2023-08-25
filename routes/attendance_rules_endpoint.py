@@ -166,7 +166,8 @@ async def automatedInsertquery():
                             attendance_id = attendance_id, 
                             presence_status = "alfa", 
                             created_at_in=jkt_current_datetime(),
-                            descriptions = "tanpa keterangan", 
+                            descriptions = "tanpa keterangan",
+                            created_at = current_date 
                             ))
                         # ?Kirim emal pemberitahuan
                         # data_for_email_message(attendance_id)
@@ -181,7 +182,8 @@ async def automatedInsertquery():
                                 attendance_id = attendance_id, 
                                 presence_status = "alfa", 
                                 created_at_in=jkt_current_datetime(),
-                                descriptions = "tanpa keterangan", ))
+                                descriptions = "tanpa keterangan",
+                                created_at = current_date))
                             # ?Kirim emal pemberitahuan
                             email_data = data_for_email_message(attendance_id, jkt_current_datetime())
                             if email_data is not None :
@@ -192,7 +194,8 @@ async def automatedInsertquery():
                                 attendance_id = attendance_id, 
                                 presence_status = "cuti", 
                                 created_at_in=jkt_current_datetime(),
-                                descriptions = check_user_is_cuti.descriptions, ))
+                                descriptions = check_user_is_cuti.descriptions, 
+                                created_at = current_date))
                 elif check_user_is_izin :
                     if user_id != check_user_is_izin.user_id :
                         # Kondisi jika user tidak izin dan  tidak scanning_in maka langsung nyatakan tidak hadir (ALFA)
@@ -200,7 +203,8 @@ async def automatedInsertquery():
                             attendance_id = attendance_id, 
                             presence_status = "alfa", 
                             created_at_in=jkt_current_datetime(),
-                            descriptions = "tanpa keterangan", ))
+                            descriptions = "tanpa keterangan",
+                            created_at = current_date))
                         # ?Kirim emal pemberitahuan
                         email_data = data_for_email_message(attendance_id, jkt_current_datetime())
                         if email_data is not None :
@@ -212,14 +216,16 @@ async def automatedInsertquery():
                                 attendance_id = attendance_id, 
                                 presence_status = "izin", 
                                 created_at_in=jkt_current_datetime(),
-                                descriptions = check_user_is_izin.reason, ))
+                                descriptions = check_user_is_izin.reason,
+                                created_at = current_date))
                         else :
                             # Kondisi jika user tidak izin atau tanggal izin lewat dari tanggal ini
                             conn.execute(presence.insert().values(
                                 attendance_id = attendance_id, 
                                 presence_status = "alfa", 
                                 created_at_in=jkt_current_datetime(),
-                                descriptions = "tanpa keterangan", ))
+                                descriptions = "tanpa keterangan",
+                                created_at = current_date))
                             # ?Kirim emal pemberitahuan
                             email_data = data_for_email_message(attendance_id, jkt_current_datetime())
                             if email_data is not None :
@@ -230,7 +236,8 @@ async def automatedInsertquery():
                         attendance_id = attendance_id, 
                         presence_status = "alfa", 
                         created_at_in=jkt_current_datetime(),
-                        descriptions = "tanpa keterangan", ))
+                        descriptions = "tanpa keterangan",
+                        created_at = current_date))
                     # ?Kirim emal pemberitahuan
                     email_data = data_for_email_message(attendance_id, jkt_current_datetime())
                     if email_data is not None :
