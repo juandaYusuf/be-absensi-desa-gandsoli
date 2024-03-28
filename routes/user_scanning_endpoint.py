@@ -5,7 +5,7 @@ from sqlalchemy.sql import select
 from fastapi import APIRouter, HTTPException
 from models.tabel import user_has_scanned_in, user_has_scanned_out, attendance_rules, presence, attendance, user_data, detail_user_scanned
 from schema.schemas import userScanning
-from config.jakarta_timezone import jkt_current_datetime
+from config.jakarta_timezone import jkt_current_datetime, jkt_current_date
 # from config.email_sender_message import email_sender
 # from config.picture_drive import drive
 import datetime
@@ -83,7 +83,7 @@ async def insertDetailUserScanned(scanned_options, user_id, scan_in_id, scan_out
 
 #! ==========================================================
 
-# !ENDPOINT CLEAR OLD DATA (Membersihkan data terdahulu atau data yang bukan hari ini 'clear data < today') - endpoint ini di hit ketika halaman qr-generator pada frontend di render-
+# !ENDPOINT CLEAR OLD DATA (Membersihkan data terdahulu atau data yang bukan hari ini 'clear data < today') - endpoint ini di hit ketika halaman qr-generator saat frontend di render-
 @router_user_scanning.delete('/api/scanning/clearing-old-datas' , tags=['USER SCANNING'])
 async def clearingOldDats():
     try :
@@ -166,7 +166,8 @@ async def postUserScanningInData(data : userScanning):
                         attendance_id = get_attendance_id, 
                         presence_status = "alfa",
                         created_at_in=jkt_current_datetime(),
-                        descriptions = "melebihi batas terlambat"))
+                        descriptions = "melebihi batas terlambat",
+                        created_at = jkt_current_date()))
                     email_data = data_for_email_message(get_attendance_id, jkt_current_datetime())
                     if email_data is not None :
                         EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="Melebihi batas waktu terlambat", date=jkt_current_datetime()).sender()
@@ -230,7 +231,8 @@ async def postUserScanningInData(data : userScanning):
                             presence_status = "hadir",
                             created_at_in=jkt_current_datetime(),
                             working = True, 
-                            descriptions = come_late_description))
+                            descriptions = come_late_description,
+                            created_at = jkt_current_date()))
                         email_data = data_for_email_message(get_attendance_id, jkt_current_datetime())
                         if email_data is not None :
                             EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="Alfa", description=come_late_description, date=jkt_current_datetime()).sender()
@@ -276,7 +278,8 @@ async def postUserScanningInData(data : userScanning):
                             presence_status = "hadir", 
                             created_at_in=jkt_current_datetime(),
                             working = True, 
-                            descriptions = "tepat waktu"))
+                            descriptions = "tepat waktu",
+                            created_at = jkt_current_date()))
                         email_data = data_for_email_message(get_attendance_id, jkt_current_datetime())
                         if email_data is not None :
                             EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="hadir", description="tepat waktu", date=jkt_current_datetime()).sender()

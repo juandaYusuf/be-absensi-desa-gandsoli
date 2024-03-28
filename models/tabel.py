@@ -1,5 +1,5 @@
 # Membuat tabel database
-from sqlalchemy import DateTime, Date, ForeignKey, Integer, String, Table, Column, Time, Boolean, func, event
+from sqlalchemy import DateTime, Date, ForeignKey, inspect, Integer, String, Table, Column, Time, Boolean, func, event
 from config.db import engine, metaData
 
 user_data = Table(
@@ -15,7 +15,9 @@ user_data = Table(
     Column('j_kelamin', String(10), nullable=False),
     Column("role_id", Integer, ForeignKey("user_role.id"), nullable=False),
     Column("login_counter", Integer, default=0, nullable=True),
-    Column('profile_picture', String(255))
+    Column('profile_picture', String(255)),
+    Column('signature', String(500))
+    
 )
 
 
@@ -28,6 +30,7 @@ attendance = Table(
     # Column('presenting', String(5), DefaultClause(allowed_values[0]), CheckConstraint("presenting IN %s" % str(tuple(allowed_values))), nullable=False),
 )
 
+
 presence = Table(
     'presence',
     metaData,
@@ -39,9 +42,11 @@ presence = Table(
     Column('created_at_out', DateTime, nullable=True),
     Column("personal_leave_id", Integer, ForeignKey("personal_leave.id"), nullable=True),
     Column("permission", Integer, ForeignKey("permission.id"), nullable=True),
+    Column("sick", Integer, ForeignKey("sick.id"), nullable=True),
     Column('total_hours_worked', String(30), nullable=True),
     Column('working',Boolean, nullable=False, default=False),
-    Column('descriptions', String(200), nullable=True)
+    Column('descriptions', String(200), nullable=True),
+    Column('created_at', Date, server_default=func.now())
     # Column('created_at_out', DateTime)
 )
 
@@ -130,7 +135,11 @@ permission = Table(
     Column('id', Integer, primary_key=True, nullable=False),
     Column("user_id", Integer, ForeignKey("user_data.id"), nullable=False),
     Column('reason', String(200),nullable=True),
-    Column('created_at', Date, nullable=False)
+    Column('start_date', Date, nullable=False),
+    Column('end_date', Date, nullable=True),
+    Column('agreement', String(15), nullable=False),
+    Column('created_at', Date, nullable=False),
+    Column('docs', String(100), nullable=True)
 )
 
 
@@ -142,7 +151,11 @@ personal_leave = Table(
     Column("user_id", Integer, ForeignKey("user_data.id"), nullable=True),
     Column('start_date', Date, nullable=True),
     Column('end_date', Date, nullable=True),
-    Column('descriptions', String(200), nullable=False)
+    Column('descriptions', String(200), nullable=False),
+    Column('agreement', String(15), nullable=False),
+    Column('apply_docs', String(100), nullable=True),
+    Column('agreement_docs', String(100), nullable=True),
+    Column('created_at', Date, nullable=False)
 )
 
 
@@ -162,15 +175,36 @@ user_device_auth = Table(
     Column('user_device', String(1024), nullable=True)
 )
 
+account_verification = Table(
+    'account_verification',
+    metaData,
+    Column('id', Integer, primary_key=True, nullable=False),
+    Column("user_id", Integer, ForeignKey("user_data.id"), nullable=False),
+    Column("code", Integer, nullable=False),
+    Column('is_verified', Boolean, nullable=False, default=False)
+)
 
-# mass_leave = Table(
-#     'mass_leave', 
-#     metaData,
-#     Column('id', Integer, primary_key=True, nullable=False),
-#     Column("user_id", Integer, ForeignKey("user_data.id"), nullable=False),
-#     Column('from_date', Date),
-#     Column('to_date', Date),
-#     Column('descriptions', String(200), nullable=True)
-# )
+sick = Table(
+    'sick',
+    metaData,
+    Column('id', Integer, primary_key=True, nullable=False),
+    Column("user_id", Integer, ForeignKey("user_data.id"), nullable=True),
+    Column('descriptions', String(500), nullable=False),
+    Column('created_at', Date, nullable=True),
+    Column('sick_proof', String(100), nullable=False)
+)
+
+
+# !==================Query alterTabel==============================
+#? ALTER TABLE [nama_tabel] ADD COLUMN [nama_kolom] INTEGER
+# ex: ALTER TABLE presence ADD COLUMN sick INTEGER;
+
+
+#? ALTER TABLE [nama_tabel] ADD FOREIGN KEY ([nama_kolom]) REFERENCES [nama_tabel_parent]([id_nya])
+# ex : ALTER TABLE presence ADD FOREIGN KEY (sick) REFERENCES sick(id);
+
+
+
+# !================================================================
 
 metaData.create_all(engine)

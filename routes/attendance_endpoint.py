@@ -2,16 +2,40 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import select
 from config.db import engine
 from fastapi import APIRouter
-from models.tabel import user_data, attendance, presence, user_has_scanned_in,personal_leave, permission
-from schema.schemas import AttendanceInputData
+from models.tabel import user_data, attendance, presence, user_has_scanned_in,personal_leave, permission, user_role
+from schema.schemas import AttendanceInputData, userSick
 import smtplib
 from email.message import EmailMessage
-import datetime
+from datetime import datetime
 import pytz
 import calendar
 import time
+from config.jakarta_timezone import jkt_current_date
+from config.picture_drive import drive
+import base64
+
+
+
+
 
 router_attendance = APIRouter()
+
+#! ================== GET PROFILE PICTURE ==================
+# fungction untuk mendapatkan gambar
+async def getSignature(img_name):
+    if str(img_name) != "None":
+        large_file = drive.get(img_name)
+        output = b""
+        for chunk in large_file.iter_chunks(4096):
+            output += chunk
+        large_file.close() 
+        encoded_image = base64.b64encode(output)
+        return encoded_image.decode("utf-8")
+    else :
+        return None
+#! ==========================================================
+
+
 
 @router_attendance.post('/api/attendance/input-attendance', tags=['ATTENDANCE'])
 async def attendancesInput(data: AttendanceInputData):
@@ -418,7 +442,79 @@ async def attendancesDetailPresence(id: int, set_year: int):
                     "percentage": 0,
                 }]
         
-        
+        sakit = 0
+        result_sakit = [{   
+                    "month": "Januari",
+                    "efective_work": 0,
+                    "total": 0,
+                    "percentage": 0,
+                },
+                {   
+                    "month": "Februari",
+                    "efective_work": 0,
+                    "total": 0,
+                    "percentage": 0,
+                },
+                {   
+                    "month": "Maret",
+                    "efective_work": 0,
+                    "total": 0,
+                    "percentage": 0,
+                },
+                {   
+                    "month": "April",
+                    "efective_work": 0,
+                    "total": 0,
+                    "percentage": 0,
+                },
+                {   
+                    "month": "Mei",
+                    "efective_work": 0,
+                    "total": 0,
+                    "percentage": 0,
+                },
+                {   
+                    "month": "Juni",
+                    "efective_work": 0,
+                    "total": 0,
+                    "percentage": 0,
+                },
+                {   
+                    "month": "Juli",
+                    "efective_work": 0,
+                    "total": 0,
+                    "percentage": 0,
+                },
+                {   
+                    "month": "Agustus",
+                    "efective_work": 0,
+                    "total": 0,
+                    "percentage": 0,
+                },
+                {   
+                    "month": "September",
+                    "efective_work": 0,
+                    "total": 0,
+                    "percentage": 0,
+                },
+                {   
+                    "month": "Oktober",
+                    "efective_work": 0,
+                    "total": 0,
+                    "percentage": 0,
+                },
+                {   
+                    "month": "November",
+                    "efective_work": 0,
+                    "total": 0,
+                    "percentage": 0,
+                },
+                {   
+                    "month": "Desember",
+                    "efective_work": 0,
+                    "total": 0,
+                    "percentage": 0,
+                }]
         
         for i, month in enumerate(month_names) :
             for datas in response_join :
@@ -454,7 +550,13 @@ async def attendancesDetailPresence(id: int, set_year: int):
                                 result_cuti[i]['total'] = cuti
                                 result_cuti[i]['percentage'] = cuti / efct_wrk['efective_works'] * 100
                             
-
+                            # Sakit ===============================================
+                            result_sakit[i]['efective_work'] = efct_wrk['efective_works']
+                            if month == month_names[datas.created_at_in.month -1] and datas.presence_status == "sakit" and set_year == datas.created_at_in.year:
+                                sakit += 1
+                                result_sakit[i]['total'] = sakit
+                                result_sakit[i]['percentage'] = sakit / efct_wrk['efective_works'] * 100
+                            
                 # !FEBRUARI
                 if month == "Februari":
                     for efct_wrk in get_efective_works:
@@ -486,6 +588,13 @@ async def attendancesDetailPresence(id: int, set_year: int):
                                 cuti += 1
                                 result_cuti[i]['total'] = cuti
                                 result_cuti[i]['percentage'] = cuti / efct_wrk['efective_works'] * 100
+                                
+                            # Sakit ===============================================
+                            result_sakit[i]['efective_work'] = efct_wrk['efective_works']
+                            if month == month_names[datas.created_at_in.month -1] and datas.presence_status == "sakit" and set_year == datas.created_at_in.year:
+                                sakit += 1
+                                result_sakit[i]['total'] = sakit
+                                result_sakit[i]['percentage'] = sakit / efct_wrk['efective_works'] * 100
                 
                 # !MARET
                 if month == "Maret":
@@ -518,7 +627,13 @@ async def attendancesDetailPresence(id: int, set_year: int):
                                 cuti += 1
                                 result_cuti[i]['total'] = cuti
                                 result_cuti[i]['percentage'] = cuti / efct_wrk['efective_works'] * 100
-                
+                            
+                            # Sakit ===============================================
+                            result_sakit[i]['efective_work'] = efct_wrk['efective_works']
+                            if month == month_names[datas.created_at_in.month -1] and datas.presence_status == "sakit" and set_year == datas.created_at_in.year:
+                                sakit += 1
+                                result_sakit[i]['total'] = sakit
+                                result_sakit[i]['percentage'] = sakit / efct_wrk['efective_works'] * 100
                 
                 # !APRIL
                 if month == "April":
@@ -551,6 +666,13 @@ async def attendancesDetailPresence(id: int, set_year: int):
                                 cuti += 1
                                 result_cuti[i]['total'] = cuti
                                 result_cuti[i]['percentage'] = cuti / efct_wrk['efective_works'] * 100
+                            
+                            # Sakit ===============================================
+                            result_sakit[i]['efective_work'] = efct_wrk['efective_works']
+                            if month == month_names[datas.created_at_in.month -1] and datas.presence_status == "sakit" and set_year == datas.created_at_in.year:
+                                sakit += 1
+                                result_sakit[i]['total'] = sakit
+                                result_sakit[i]['percentage'] = sakit / efct_wrk['efective_works'] * 100
                 
                 
                 # !MEI
@@ -584,6 +706,13 @@ async def attendancesDetailPresence(id: int, set_year: int):
                                 cuti += 1
                                 result_cuti[i]['total'] = cuti
                                 result_cuti[i]['percentage'] = cuti / efct_wrk['efective_works'] * 100
+                            
+                            # Sakit ===============================================
+                            result_sakit[i]['efective_work'] = efct_wrk['efective_works']
+                            if month == month_names[datas.created_at_in.month -1] and datas.presence_status == "sakit" and set_year == datas.created_at_in.year:
+                                sakit += 1
+                                result_sakit[i]['total'] = sakit
+                                result_sakit[i]['percentage'] = sakit / efct_wrk['efective_works'] * 100
                 
                 
                 # !JUNI
@@ -617,6 +746,13 @@ async def attendancesDetailPresence(id: int, set_year: int):
                                 cuti += 1
                                 result_cuti[i]['total'] = cuti
                                 result_cuti[i]['percentage'] = cuti / efct_wrk['efective_works'] * 100
+                            
+                            # Sakit ===============================================
+                            result_sakit[i]['efective_work'] = efct_wrk['efective_works']
+                            if month == month_names[datas.created_at_in.month -1] and datas.presence_status == "sakit" and set_year == datas.created_at_in.year:
+                                sakit += 1
+                                result_sakit[i]['total'] = sakit
+                                result_sakit[i]['percentage'] = sakit / efct_wrk['efective_works'] * 100
                 
                 
                 # !JULI
@@ -650,6 +786,13 @@ async def attendancesDetailPresence(id: int, set_year: int):
                                 cuti += 1
                                 result_cuti[i]['total'] = cuti
                                 result_cuti[i]['percentage'] = cuti / efct_wrk['efective_works'] * 100
+                                
+                            # Sakit ===============================================
+                            result_sakit[i]['efective_work'] = efct_wrk['efective_works']
+                            if month == month_names[datas.created_at_in.month -1] and datas.presence_status == "sakit" and set_year == datas.created_at_in.year:
+                                sakit += 1
+                                result_sakit[i]['total'] = sakit
+                                result_sakit[i]['percentage'] = sakit / efct_wrk['efective_works'] * 100
                 
                 
                 # !AGUSTUS
@@ -683,6 +826,13 @@ async def attendancesDetailPresence(id: int, set_year: int):
                                 cuti += 1
                                 result_cuti[i]['total'] = cuti
                                 result_cuti[i]['percentage'] = cuti / efct_wrk['efective_works'] * 100
+                                
+                            # Sakit ===============================================
+                            result_sakit[i]['efective_work'] = efct_wrk['efective_works']
+                            if month == month_names[datas.created_at_in.month -1] and datas.presence_status == "sakit" and set_year == datas.created_at_in.year:
+                                sakit += 1
+                                result_sakit[i]['total'] = sakit
+                                result_sakit[i]['percentage'] = sakit / efct_wrk['efective_works'] * 100
                         
                 
                 
@@ -718,6 +868,13 @@ async def attendancesDetailPresence(id: int, set_year: int):
                                 cuti += 1
                                 result_cuti[i]['total'] = cuti
                                 result_cuti[i]['percentage'] = cuti / efct_wrk['efective_works'] * 100
+                                
+                            # Sakit ===============================================
+                            result_sakit[i]['efective_work'] = efct_wrk['efective_works']
+                            if month == month_names[datas.created_at_in.month -1] and datas.presence_status == "sakit" and set_year == datas.created_at_in.year:
+                                sakit += 1
+                                result_sakit[i]['total'] = sakit
+                                result_sakit[i]['percentage'] = sakit / efct_wrk['efective_works'] * 100
                 
                 
                 # !OKTOBER
@@ -751,6 +908,13 @@ async def attendancesDetailPresence(id: int, set_year: int):
                                 cuti += 1
                                 result_cuti[i]['total'] = cuti
                                 result_cuti[i]['percentage'] = cuti / efct_wrk['efective_works'] * 100
+                                
+                            # Sakit ===============================================
+                            result_sakit[i]['efective_work'] = efct_wrk['efective_works']
+                            if month == month_names[datas.created_at_in.month -1] and datas.presence_status == "sakit" and set_year == datas.created_at_in.year:
+                                sakit += 1
+                                result_sakit[i]['total'] = sakit
+                                result_sakit[i]['percentage'] = sakit / efct_wrk['efective_works'] * 100
                 
                 
                 # !NOVEMBER
@@ -784,6 +948,13 @@ async def attendancesDetailPresence(id: int, set_year: int):
                                 cuti += 1
                                 result_cuti[i]['total'] = cuti
                                 result_cuti[i]['percentage'] = cuti / efct_wrk['efective_works'] * 100
+                                
+                            # Sakit ===============================================
+                            result_sakit[i]['efective_work'] = efct_wrk['efective_works']
+                            if month == month_names[datas.created_at_in.month -1] and datas.presence_status == "sakit" and set_year == datas.created_at_in.year:
+                                sakit += 1
+                                result_sakit[i]['total'] = sakit
+                                result_sakit[i]['percentage'] = sakit / efct_wrk['efective_works'] * 100
                 
                 
                 # !DESEMBER
@@ -796,33 +967,41 @@ async def attendancesDetailPresence(id: int, set_year: int):
                                 hadir += 1
                                 result_hadir[i]['total'] = hadir
                                 result_hadir[i]['percentage'] = hadir / efct_wrk['efective_works'] * 100
-                        
+
                             # *Izin ===============================================
                             result_izin[i]['efective_work'] = efct_wrk['efective_works']
                             if month == month_names[datas.created_at_in.month -1] and datas.presence_status == "izin" and set_year == datas.created_at_in.year:
                                 izin += 1
                                 result_izin[i]['total'] = izin
                                 result_izin[i]['percentage'] = izin / efct_wrk['efective_works'] * 100
-                        
+
                             # ?Alfa ===============================================
                             result_alfa[i]['efective_work'] = efct_wrk['efective_works']
                             if month == month_names[datas.created_at_in.month -1] and datas.presence_status == "alfa" and set_year == datas.created_at_in.year:
                                 alfa += 1
                                 result_alfa[i]['total'] = alfa
                                 result_alfa[i]['percentage'] = alfa / efct_wrk['efective_works'] * 100
-                        
+
                             # Curi ===============================================
                             result_cuti[i]['efective_work'] = efct_wrk['efective_works']
                             if month == month_names[datas.created_at_in.month -1] and datas.presence_status == "cuti" and set_year == datas.created_at_in.year:
                                 cuti += 1
                                 result_cuti[i]['total'] = cuti
                                 result_cuti[i]['percentage'] = cuti / efct_wrk['efective_works'] * 100
+                                
+                            # Sakit ===============================================
+                            result_sakit[i]['efective_work'] = efct_wrk['efective_works']
+                            if month == month_names[datas.created_at_in.month -1] and datas.presence_status == "sakit" and set_year == datas.created_at_in.year:
+                                sakit += 1
+                                result_sakit[i]['total'] = sakit
+                                result_sakit[i]['percentage'] = sakit / efct_wrk['efective_works'] * 100
                         
         return {
             "hadir":result_hadir,
             "izin": result_izin,
             "alfa": result_alfa,
             "cuti": result_cuti,
+            "sakit": result_sakit,
             }
     except SQLAlchemyError as e:
         print("terdapat error --> ", e)
@@ -922,6 +1101,83 @@ async def multiAttendanceDetailPresent(set_year: int, set_month: int):
         conn.close()
         print("\n --> 'multiAttendanceDetailPresent' berhasil >> Koneksi di tutup <-- \n")
     
+
+@router_attendance.get('/api/attendance/multi/presence-per-month/{set_month}/{set_year}', tags=['ATTENDANCE'])
+async def getPresenceDataPerMonth(set_month:int, set_year:int) :
+    
+    try:
+        conn = engine.connect()
+        data_manipulation = []
+        result_data_manipulations = []
+        day_name_in_ID = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+        get_day_in_month = calendar.monthrange(set_year,set_month)[1]
+        
+        
+        join_query = attendance.join(
+            user_data, 
+            attendance.c.user_id == user_data.c.id
+            ).join(
+                presence, 
+                attendance.c.id == presence.c.attendance_id
+                ).join(
+                    user_role, user_data.c.role_id == user_role.c.id)
+        result_join = select([
+            user_data.c.id,
+            attendance.c.id,
+            presence.c.id,
+            user_data.c.first_name, 
+            user_data.c.last_name,
+            user_role.c.role,
+            presence.c.created_at_in, 
+            presence.c.presence_status,
+            presence.c.created_at_out, 
+            user_data.c.signature, 
+            presence.c.created_at
+        ]).select_from(join_query)
+        exec_join = conn.execute(result_join).fetchall()
+        get_hv_data = conn.execute(user_data.select().where(user_data.c.role_id == 8)).first()
+        
+        for item in exec_join :
+            only_time_in = item.created_at_in.strftime("%H:%M:%S")
+            only_time_out = item.created_at_out.strftime("%H:%M:%S") if item.created_at_out is not None else None
+            data_manipulation.append({
+                "user_id":item.id,
+                "attendance_id":item.id_1,
+                "presence_id":item.id_2,
+                "first_name":item.first_name,
+                "last_name":item.last_name,
+                "role":item.role,
+                "created_at_in":only_time_in if item.presence_status == 'hadir' else None,
+                "created_at_out":only_time_out if item.presence_status == 'hadir' else None,
+                "presence_status":item.presence_status,
+                "created_at":item.created_at,
+                "signature": await getSignature(item.signature) if item.presence_status == 'hadir' else None,
+            })
+        
+        for day_item in range(1, get_day_in_month + 1) :
+            date_str = f"{set_year}-{set_month:02d}-{day_item:02d}"
+            day_index = calendar.weekday(set_year,set_month,day_item)
+            day_name = day_name_in_ID[day_index]
+            
+            if day_index not in [5, 6]:
+                result_data_manipulations.append({
+                    "day_name" : day_name,
+                    "date" : date_str,
+                    "hv_name": f'{get_hv_data.first_name} {get_hv_data.last_name}',
+                    "attendance" : [item for item in data_manipulation if str(item['created_at']) == date_str],
+                    "hv_signature": await getSignature(get_hv_data.signature)
+                })
+            else :
+                print('WeekEnd')
+        
+        return result_data_manipulations
+    except SQLAlchemyError as e :
+        print("terdapat error --> ", e)
+    finally :
+        conn.close()
+        print("\n --> 'multiAttendanceDetailPresent' berhasil >> Koneksi di tutup <-- \n")
+    
+
 
 
 #! Anggap user yang tidak melakukan scan_in sebagai user yang tidak hadir (Endpoin ini di hit ketika waktu keluar kerja telah berakhir)

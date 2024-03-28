@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from models.tabel import attendance_rules, attendance, user_has_scanned_in, personal_leave ,permission ,presence, user_data
 from schema.schemas import (AttendanceRules, AttendanceRulesActivation, )
 import pytz
-from config.email_sender_message import EmailSender
+from config.email_sender_message import EmailSender, ConfirmEmailSender
 from config.jakarta_timezone import jkt_current_datetime, jkt_current_date, jkt_current_time
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.asyncio import AsyncIOExecutor
@@ -43,13 +43,16 @@ def data_for_email_message (attendance_id, created_at_in):
     
     
     
-@router_attendance_rules.get("/api/automation/automate-insert-query", tags=["AUTOMATIONS ENDPOINT"])
+@router_attendance_rules.get("/api/automation/automate-insert-query", tags=["CRON JOB API"])
 async def automatedInsertquery():
     try :
         day_name_of_ind = ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu', 'minggu']
         conn = engine.connect()
         # cek tanggal sekarang kemudian anggap user yang tidak melakukan scann_in sebagai user yang tidak hadir (ALFA)
-        current_date = jkt_current_time()
+        current_date = jkt_current_date()
+        current_time = jkt_current_time()
+        current_date_time = jkt_current_datetime()
+        
         # return current_date
         #? ================================ ALGORITHM =======================================
         # Dapatkan data user yang sudah melakukan scan hari ini
@@ -69,7 +72,7 @@ async def automatedInsertquery():
         result_day_name_of_ind = day_name_of_ind[index_of_today]
         
         get_data_from_attendance = conn.execute(attendance.select()).fetchall()
-        get_user_scanned_in = conn.execute(user_has_scanned_in.select().where(user_has_scanned_in.c.created_at > jkt_current_time())).fetchall()
+        get_user_scanned_in = conn.execute(user_has_scanned_in.select().where(user_has_scanned_in.c.created_at > jkt_current_datetime())).fetchall()
         
         
         
@@ -85,8 +88,15 @@ async def automatedInsertquery():
         
         #* Cek apakah hari minggu/sabtu. Maka jangan ngapangapain
         
+        # if result_day_name_of_ind == 'sabtu' or result_day_name_of_ind == 'minggu':
+        #     print("weekEnd")
+        # else :
+        #     print("weekDay")
+        # return result_day_name_of_ind
         
-        if result_day_name_of_ind != 'sabtu' or result_day_name_of_ind != 'minggu':
+        if result_day_name_of_ind == 'sabtu' or result_day_name_of_ind == 'minggu':
+            return {"message" : "weekend"}
+        else :
             
             #* ===========================================================================
             # Loop seluruh isi data dari tabel user_data (var 'get_data_from_attendance') 
@@ -156,7 +166,8 @@ async def automatedInsertquery():
                             attendance_id = attendance_id, 
                             presence_status = "alfa", 
                             created_at_in=jkt_current_datetime(),
-                            descriptions = "tanpa keterangan", 
+                            descriptions = "tanpa keterangan",
+                            created_at = current_date 
                             ))
                         # ?Kirim emal pemberitahuan
                         # data_for_email_message(attendance_id)
@@ -171,7 +182,8 @@ async def automatedInsertquery():
                                 attendance_id = attendance_id, 
                                 presence_status = "alfa", 
                                 created_at_in=jkt_current_datetime(),
-                                descriptions = "tanpa keterangan", ))
+                                descriptions = "tanpa keterangan",
+                                created_at = current_date))
                             # ?Kirim emal pemberitahuan
                             email_data = data_for_email_message(attendance_id, jkt_current_datetime())
                             if email_data is not None :
@@ -182,7 +194,8 @@ async def automatedInsertquery():
                                 attendance_id = attendance_id, 
                                 presence_status = "cuti", 
                                 created_at_in=jkt_current_datetime(),
-                                descriptions = check_user_is_cuti.descriptions, ))
+                                descriptions = check_user_is_cuti.descriptions, 
+                                created_at = current_date))
                 elif check_user_is_izin :
                     if user_id != check_user_is_izin.user_id :
                         # Kondisi jika user tidak izin dan  tidak scanning_in maka langsung nyatakan tidak hadir (ALFA)
@@ -190,7 +203,8 @@ async def automatedInsertquery():
                             attendance_id = attendance_id, 
                             presence_status = "alfa", 
                             created_at_in=jkt_current_datetime(),
-                            descriptions = "tanpa keterangan", ))
+                            descriptions = "tanpa keterangan",
+                            created_at = current_date))
                         # ?Kirim emal pemberitahuan
                         email_data = data_for_email_message(attendance_id, jkt_current_datetime())
                         if email_data is not None :
@@ -202,14 +216,16 @@ async def automatedInsertquery():
                                 attendance_id = attendance_id, 
                                 presence_status = "izin", 
                                 created_at_in=jkt_current_datetime(),
-                                descriptions = check_user_is_izin.reason, ))
+                                descriptions = check_user_is_izin.reason,
+                                created_at = current_date))
                         else :
                             # Kondisi jika user tidak izin atau tanggal izin lewat dari tanggal ini
                             conn.execute(presence.insert().values(
                                 attendance_id = attendance_id, 
                                 presence_status = "alfa", 
                                 created_at_in=jkt_current_datetime(),
-                                descriptions = "tanpa keterangan", ))
+                                descriptions = "tanpa keterangan",
+                                created_at = current_date))
                             # ?Kirim emal pemberitahuan
                             email_data = data_for_email_message(attendance_id, jkt_current_datetime())
                             if email_data is not None :
@@ -220,15 +236,13 @@ async def automatedInsertquery():
                         attendance_id = attendance_id, 
                         presence_status = "alfa", 
                         created_at_in=jkt_current_datetime(),
-                        descriptions = "tanpa keterangan", ))
+                        descriptions = "tanpa keterangan",
+                        created_at = current_date))
                     # ?Kirim emal pemberitahuan
                     email_data = data_for_email_message(attendance_id, jkt_current_datetime())
                     if email_data is not None :
                         EmailSender(reciver_email = email_data.email, reciver_name=f"{email_data.first_name} {email_data.last_name}", reciver_presence_status="alfa", description="tanpa keterangan", date=jkt_current_datetime()).sender()
             return {"message" : "setup done"}
-        else :
-            return {"message" : "weekend"}
-        
     except SQLAlchemyError as e :
         print("terdapat error --> ", e)
     finally :

@@ -1,16 +1,37 @@
 from sqlalchemy.exc import SQLAlchemyError
+from PIL import Image
+from sqlalchemy.orm import Session
 from config.db import engine
 from fastapi import APIRouter, HTTPException, UploadFile, File, Request
-from models.tabel import user_data, attendance, presence, user_role, user_device_auth
-from schema.schemas import (LoginData, RegisterData, EditDataProfile, changePassword, UpdateRole)
+from models.tabel import user_data, attendance, presence, user_role, user_device_auth, account_verification, detail_user_scanned, user_has_scanned_in, user_has_scanned_out, personal_leave, permission, sick
+from schema.schemas import (LoginData, RegisterData, EditDataProfile, changePassword, UpdateRole, Verifications, UpdateSignature)
 import secrets
+from config.email_sender_message import ConfirmEmailSender
+from config.upload_image_to_detadrive import uploadImageToDeta
 import base64
-from deta import Deta
 from config.picture_drive import drive
 import random
 
 
+
+
 router_user = APIRouter()
+
+#! ================== GET PROFILE PICTURE ==================
+# fungction untuk mendapatkan gambar
+async def profilePictures(img_name):
+    if str(img_name) != "None":
+        large_file = drive.get(img_name)
+        output = b""
+        for chunk in large_file.iter_chunks(4096):
+            output += chunk
+        large_file.close()
+        encoded_image = base64.b64encode(output)
+        return encoded_image.decode("utf-8")
+    else :
+        return None
+#! ==========================================================
+
 
 
 #! USER  ==============================================================================
@@ -31,38 +52,48 @@ async def login(data: LoginData):
         conn = engine.connect()
         new_value = 0
         response = conn.execute(user_data.select().where(user_data.c.email == data.email)).first()
-
+        
         if response :
-            get_role = conn.execute(user_role.select().where(user_role.c.id == response.role_id)).first()
-            check_login_counter = conn.execute(user_data.select().where(user_data.c.id == response.id)).first()
-            if check_login_counter.login_counter == None or check_login_counter.login_counter == 0:
-                # Ini kondisi ketika user baru di registrasikan atau belum pernah login
-                first_login = conn.execute(user_data.update().values(login_counter = 1).where(user_data.c.id == response.id)) # jika user login pertama kali maka hitung atau inisialisasi dengan angka 1
-                if first_login.rowcount > 0 :
-                    # ini kondisi jika proses query 'first_login' berhasil
-                    # karena user barusaja login maka insert fpBrowser  -> 'user_device_auth'
-                    insert_fpBrowser = conn.execute(user_device_auth.insert().values(user_id = response.id, user_device = data.user_device))
-                    if insert_fpBrowser.rowcount > 0:
-                        return {
-                            "id" : response.id, 
-                            "role": get_role.role,
-                            "encpass": response.password,
-                            "log": "first login"
-                            }
-            else :
-                validate_user_device = conn.execute(user_device_auth.select().where(user_device_auth.c.user_id == response.id, user_device_auth.c.user_device == data.user_device)).first()
-                if validate_user_device is not None :
-                    new_value = check_login_counter.login_counter + 1
-                    insert_counter = conn.execute(user_data.update().values(login_counter = new_value).where(user_data.c.id == response.id))
-                    if insert_counter.rowcount > 0 :
-                        return {
-                            "id" : response.id, 
-                            "role": get_role.role,
-                            "encpass": response.password,
-                            "log": f"{new_value} times login"
-                            }
+            is_user_verified = conn.execute(account_verification.select().where(account_verification.c.user_id == response.id)).first()
+            if is_user_verified.is_verified == True :
+                get_role = conn.execute(user_role.select().where(user_role.c.id == response.role_id)).first()
+                check_login_counter = conn.execute(user_data.select().where(user_data.c.id == response.id)).first()
+                if check_login_counter.login_counter == None or check_login_counter.login_counter == 0:
+                    # Ini kondisi ketika user baru di registrasikan atau belum pernah login
+                    first_login = conn.execute(user_data.update().values(login_counter = 1).where(user_data.c.id == response.id)) # jika user login pertama kali maka hitung atau inisialisasi dengan angka 1
+                    if first_login.rowcount > 0 :
+                        # ini kondisi jika proses query 'first_login' berhasil
+                        # karena user barusaja login maka insert fpBrowser  -> 'user_device_auth'
+                        insert_fpBrowser = conn.execute(user_device_auth.insert().values(user_id = response.id, user_device = data.user_device))
+                        if insert_fpBrowser.rowcount > 0:
+                            return {
+                                "id" : response.id, 
+                                "role": get_role.role,
+                                "encpass": response.password,
+                                "log": "first login"
+                                }
                 else :
-                    return {"message" : "device not vaidated"}
+                    validate_user_device = conn.execute(user_device_auth.select().where(user_device_auth.c.user_id == response.id, user_device_auth.c.user_device == data.user_device)).first()
+                    if validate_user_device is not None :
+                        new_value = check_login_counter.login_counter + 1
+                        insert_counter = conn.execute(user_data.update().values(login_counter = new_value).where(user_data.c.id == response.id))
+                        if insert_counter.rowcount > 0 :
+                            return {
+                                "id" : response.id, 
+                                "role": get_role.role,
+                                "encpass": response.password,
+                                "log": f"{new_value} times login"
+                                }
+                    else :
+                        return {"message" : "device not vaidated"}
+            else :
+                get_role = conn.execute(user_role.select().where(user_role.c.id == response.role_id)).first()
+                return {
+                    "id" : response.id, 
+                    "role": get_role.role,
+                    "encpass": response.password,
+                    "log": "unverified"
+                    }
         elif not response :
             raise HTTPException(status_code=404, detail="User Tidak Dapat ditemukan, Harap periksa kembali Email dan Password")
     except SQLAlchemyError as e:
@@ -77,7 +108,9 @@ async def login(data: LoginData):
 async def register(data: RegisterData):
     try:
         conn = engine.connect()
-        # random_number = random.randint(100000, 999999)
+        verify_code = random.randint(000000, 999999)
+        
+        
         is_email_duplicate = conn.execute(user_data.select().where(user_data.c.email == data.email)).fetchall()
         get_role = conn.execute(user_role.select().where(user_role.c.role == data.role)).first()
         if is_email_duplicate :
@@ -90,11 +123,15 @@ async def register(data: RegisterData):
                 conn.execute(attendance.insert().values(user_id = response.id))
                 attendance_table_response = conn.execute(attendance.select().where(attendance.c.user_id == response.id)).first()
                 if attendance_table_response :
+                    # Insert verified code 
+                    conn.execute(account_verification.insert().values(user_id = response.id, code = verify_code))
+                    ConfirmEmailSender(reciver_email=data.email, reciver_name= f'{data.first_name} {data.last_name}', verify_code=verify_code).sender()
                     return {
                         "message" : "register success",
                         "name": fullname,
                         "role": get_role.role
                         }
+                    
             elif not response :
                 raise HTTPException(status_code=404, detail="gagal menyimpan data")
     except SQLAlchemyError as e:
@@ -157,27 +194,16 @@ async def uploadprofileimage(id:int, image: UploadFile =File(...)):
     try:
         conn = engine.connect()
         is_user_exist = conn.execute(user_data.select().where(user_data.c.id == id)).first()
+        upload_img = await uploadImageToDeta(image)
         if is_user_exist :
-            with image.file as f:
-                fileName = image.filename
-                extensions = fileName.split(".")[1]
-                if extensions not in ['png', 'jpg', 'jpeg']:
-                    return {
-                        "status": "error",
-                        "detail": "file extension is not allowed"
-                        }
-                token_name = secrets.token_hex(10)+"."+extensions
-                generated_name = token_name
-                push_the_file = drive.put(generated_name[1:], f)
-                conn.execute(user_data.update().values(profile_picture = push_the_file).where(user_data.c.id == id))
-                result = conn.execute(user_data.select().where(user_data.c.id == id, user_data.c.profile_picture == push_the_file)).first().profile_picture
-                if result :
-                    return {"message":"file succesfully uploaded"}
+            insert_filename = conn.execute(user_data.update().values(profile_picture = upload_img).where(user_data.c.id == id))
+            if insert_filename.rowcount > 0 :
+                return {"message":"file succesfully uploaded"}
         else :
             raise HTTPException(
                 status_code=404,
                 detail="Pengguna tidak terdafatar"
-            )
+                )
     except SQLAlchemyError as e:
         print("terdapat error ==> ", e)
     finally:
@@ -273,6 +299,8 @@ async def userDetail(id:int):
             "email": response.email,
             "j_kelamin": response.j_kelamin,
             "role": get_role.role,
+            "signature": response.signature,
+            "signature_data": await profilePictures(response.signature),
             "profile_picture": response.profile_picture
             }
     except SQLAlchemyError as e :
@@ -317,36 +345,59 @@ async def listOfUser():
 async def deletUserData(id: int):
     try:
         conn = engine.connect()
-
+        
+        
         get_attendance_data = conn.execute(attendance.select().where(attendance.c.user_id == id)).first()
         get_presence_data = conn.execute(presence.select().where(presence.c.attendance_id == get_attendance_data.id)).first()
         get_profile_picture_name = conn.execute(user_data.select().where(user_data.c.id == id)).first().profile_picture
-
+        
+        
         # ?delete presence data
         if get_presence_data :
-            if get_presence_data :
-                delete_presence_data = conn.execute(presence.delete().where(presence.c.attendance_id == get_presence_data.attendance_id))
-            # ?Delete Attendance_data
-            if delete_presence_data.rowcount > 0 :
-                delete_attendance_data = conn.execute(attendance.delete().where(attendance.c.id == get_attendance_data.id))
-                # ?Delete user data and delete profile picture
-                if delete_attendance_data.rowcount > 0 :
-                    delete_user_data = conn.execute(user_data.delete().where(user_data.c.id == id))
-                    if delete_user_data.rowcount > 0 :
-                        if get_profile_picture_name:
-                            drive.delete(get_profile_picture_name)
-                        return {"message":"user data has been deleted"}
-        else:
-            # ?Delete Attendance_data
-            delete_attendance_data = conn.execute(attendance.delete().where(attendance.c.id == get_attendance_data.id))
-            # ?Delete user data and delete profile picture
-            if delete_attendance_data.rowcount > 0 :
-                delete_user_data = conn.execute(user_data.delete().where(user_data.c.id == id))
-                if delete_user_data.rowcount > 0 :
-                    if get_profile_picture_name:
-                        drive.delete(get_profile_picture_name)
-                    return {"message":"user data has been deleted"}
-
+            conn.execute(detail_user_scanned.delete().where(detail_user_scanned.c.user_id == id))
+            conn.execute(user_has_scanned_in.delete().where(user_has_scanned_in.c.user_id == id))
+            conn.execute(user_has_scanned_out.delete().where(user_has_scanned_out.c.user_id == id))
+            conn.execute(account_verification.delete().where(account_verification.c.user_id == id))
+            conn.execute(user_device_auth.delete().where(user_device_auth.c.user_id == id))
+            conn.execute(personal_leave.delete().where(personal_leave.c.user_id == id))
+            conn.execute(permission.delete().where(permission.c.user_id == id))
+            conn.execute(presence.delete().where(presence.c.attendance_id == get_presence_data.attendance_id))
+            conn.execute(sick.delete().where(sick.c.user_id == id))
+            conn.execute(attendance.delete().where(attendance.c.id == get_attendance_data.id))
+            conn.execute(user_data.delete().where(user_data.c.id == id))
+            if get_profile_picture_name:
+                drive.delete(get_profile_picture_name)
+            return {"message":"user data has been deleted"}
+            # if delete_user_device_auth.rowcount > 0 :
+            # if get_presence_data :
+            #     delete_presence_data = conn.execute(presence.delete().where(presence.c.attendance_id == get_presence_data.attendance_id))
+            # # ?Delete Attendance_data
+            # if delete_presence_data.rowcount > 0 :
+            #     delete_attendance_data = conn.execute(attendance.delete().where(attendance.c.id == get_attendance_data.id))
+            #     # ?Delete user data and delete profile picture
+            #     if delete_attendance_data.rowcount > 0 :
+            #         delete_user_data = conn.execute(user_data.delete().where(user_data.c.id == id))
+            #         if delete_user_data.rowcount > 0 :
+            #             if get_profile_picture_name:
+            #                 drive.delete(get_profile_picture_name)
+        # ?delete jika presence data kosong
+        else :
+            conn.execute(detail_user_scanned.delete().where(detail_user_scanned.c.user_id == id))
+            conn.execute(user_has_scanned_in.delete().where(user_has_scanned_in.c.user_id == id))
+            conn.execute(user_has_scanned_out.delete().where(user_has_scanned_out.c.user_id == id))
+            conn.execute(account_verification.delete().where(account_verification.c.user_id == id))
+            conn.execute(personal_leave.delete().where(personal_leave.c.user_id == id))
+            conn.execute(permission.delete().where(permission.c.user_id == id))
+            conn.execute(user_device_auth.delete().where(user_device_auth.c.user_id == id))
+            conn.execute(attendance.delete().where(attendance.c.id == get_attendance_data.id))
+            conn.execute(user_data.delete().where(user_data.c.id == id))
+            if get_profile_picture_name:
+                drive.delete(get_profile_picture_name)
+            return {"message":"user data has been deleted"}
+            # if delete_user_device_auth.rowcount > 0 :
+            # if delete_attendance_data.rowcount > 0 :
+            #     delete_user_data = conn.execute(user_data.delete().where(user_data.c.id == id))
+            #     if delete_user_data.rowcount > 0 :
     except SQLAlchemyError as e:
         print("terdapat error ==> ", e)
     finally:
@@ -378,6 +429,83 @@ async def userRoles():
     finally:
         conn.close()
         print("\n ==> 'userRoles' berhasil >> Koneksi di tutup <== \n")
+
+
+@router_user.post('/api/verifications/single/user-verification-code/' , tags=['USERS'])
+async def verifivations(data: Verifications):
+    try:
+        conn = engine.connect()
+        get_verify_code = conn.execute(account_verification.select().where(account_verification.c.user_id == data.user_id, account_verification.c.code == data.code)).first()
+        if get_verify_code :
+            set_as_verified = conn.execute(account_verification.update().values(is_verified = True).where(account_verification.c.user_id == data.user_id))
+            if set_as_verified.rowcount > 0 :
+                return {"message" : "verified"}
+        else :
+            return {"message" : "invalid"}
+    except SQLAlchemyError as e:
+        print("terdapat error ==> ", e)
+    finally:
+        conn.close()
+        print("\n ==> 'verifivations' berhasil >> Koneksi di tutup <== \n")
+
+
+@router_user.put('/api/user/single/update-signature' , tags=['USERS'])
+async def updateUserSignature(data : UpdateSignature):
+    
+    def saveSignature () :
+        data_url = data.signature
+        image_data = data_url.split(",")[1]
+        image_bytes = base64.b64decode(image_data)
+        token_name = secrets.token_hex(10)+"."+"png"
+        generated_name = token_name
+        from io import BytesIO
+        image_stream = BytesIO(image_bytes)
+        push_the_file = drive.put(generated_name[1:], image_stream)
+        return push_the_file
+    
+    try:
+        conn = engine.connect()
+        # print(data.signature)
+        save_signature_to_cloud = saveSignature()
+        # Delete signature jika sudah ada
+        chek_signature_exist = conn.execute(user_data.select().where(user_data.c.id == data.id)).first()
+        if chek_signature_exist.signature is not None :
+            delete_signature = conn.execute(user_data.update().values(signature = None).where(user_data.c.id == data.id))
+            deleted_file = drive.delete(chek_signature_exist.signature)
+            if delete_signature.rowcount > 0 and deleted_file:
+                update_user_signature = conn.execute(user_data.update().values(signature = save_signature_to_cloud).where(user_data.c.id == data.id))
+                if update_user_signature.rowcount > 0 :
+                    return {"message": "user signature has been updated"}
+        else :
+            update_signature_if_not_exist = conn.execute(user_data.update().values(signature = save_signature_to_cloud).where(user_data.c.id == data.id))
+            if update_signature_if_not_exist.rowcount > 0 :
+                return {"message": "user signature has been added"}
+    except SQLAlchemyError as e:
+        print("terdapat error ==> ", e)
+    finally:
+        conn.close()
+        print("\n ==> 'updateUserSignature' berhasil >> Koneksi di tutup <== \n")
+
+
+
+# @router_user.put('/api/user/single/show-signature/{user_id}' , tags=['USERS'])
+# async def showUserSignature(user_id:int):
+#     try:
+#         conn = engine.connect()
+#         get_signature = conn.execute(user_data.select().where(user_data.c.id == user_id))
+#         if get_signature is not None :
+#             return {
+#                 "user_id" : "",
+#                 "signature" : ""
+#             }
+#     except SQLAlchemyError as e:
+#         print("terdapat error di showUserSignature ==> ", e)
+#     finally:
+#         conn.close()
+#         print("\n ==> 'showUserSignature' berhasil >> Koneksi di tutup <== \n")
+
+
+
 
 
 @router_user.get('/api/user/ip', tags=['IP'])
